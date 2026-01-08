@@ -8,6 +8,9 @@ export const MOCK_USER = {
   spendingCapacity: 850000,
 };
 
+// Mật khẩu demo cho user mock. Chỉ dùng cho môi trường frontend giả lập (localStorage).
+export const MOCK_USER_PASSWORD = 'password123';
+
 export const MOCK_ORDERS = [
   {
     id: '1',

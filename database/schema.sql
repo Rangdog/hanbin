@@ -1,4 +1,3 @@
--- Create database
 CREATE DATABASE IF NOT EXISTS supply_chain_finance CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE supply_chain_finance;
 
@@ -8,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   company_name VARCHAR(255) NOT NULL,
   industry VARCHAR(100) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
   credit_limit DECIMAL(15, 2) NOT NULL DEFAULT 0,
   available_credit DECIMAL(15, 2) NOT NULL DEFAULT 0,
   spending_capacity DECIMAL(15, 2) NOT NULL DEFAULT 0,
@@ -47,4 +47,17 @@ CREATE TABLE IF NOT EXISTS risk_metrics (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_user_id (user_id),
   INDEX idx_calculated_at (calculated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Password reset tokens table
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id VARCHAR(36) NOT NULL,
+  token VARCHAR(255) NOT NULL UNIQUE,
+  expires_at DATETIME NOT NULL,
+  used TINYINT(1) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_token (token),
+  INDEX idx_expires_at (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

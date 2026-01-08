@@ -1,117 +1,204 @@
 import { User, Order, RiskMetrics } from '../types';
-import { MOCK_USER, MOCK_ORDERS } from '../constants';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+// Lưu token và user vào localStorage
 const STORAGE_KEYS = {
-  USER: 'scf_user',
-  ORDERS: 'scf_orders',
-  RISK_METRICS: 'scf_risk_metrics',
+  AUTH_TOKEN: 'scf_auth_token',
+  USER_ID: 'scf_user_id',
+  USER_DATA: 'scf_user_data',
 };
 
-function getStoredOrders(): Order[] {
-  const stored = localStorage.getItem(STORAGE_KEYS.ORDERS);
-  return stored ? JSON.parse(stored) : [...MOCK_ORDERS];
+function getAuthToken(): string | null {
+  return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
 }
 
-function saveOrders(orders: Order[]): void {
-  localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
+function setAuthToken(token: string, user: User) {
+  localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+  localStorage.setItem(STORAGE_KEYS.USER_ID, user.id);
+  localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
 }
 
-function getStoredUser(): User {
-  const stored = localStorage.getItem(STORAGE_KEYS.USER);
-  return stored ? JSON.parse(stored) : { ...MOCK_USER };
+function clearAuth() {
+  localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.USER_ID);
+  localStorage.removeItem(STORAGE_KEYS.USER_DATA);
 }
 
-function saveUser(user: User): void {
-  localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+function getUserId(): string | null {
+  return localStorage.getItem(STORAGE_KEYS.USER_ID);
 }
 
-function getStoredRiskMetrics(): RiskMetrics {
-  const stored = localStorage.getItem(STORAGE_KEYS.RISK_METRICS);
-  return stored ? JSON.parse(stored) : {
-    creditScore: 85,
-    paymentHistory: 92,
-    industryRisk: 65,
-    marketConditions: 78,
+function getUserData(): User | null {
+  const stored = localStorage.getItem(STORAGE_KEYS.USER_DATA);
+  return stored ? JSON.parse(stored) : null;
+}
+
+async function apiRequest(endpoint: string, options: RequestInit = {}) {
+  const token = getAuthToken();
+  const userId = getUserId();
+
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
   };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  if (userId) {
+    headers['X-User-Id'] = userId;
+  }
+
+  const url = `${API_BASE_URL}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Lỗi server' }));
+    throw new Error(error.error || `HTTP ${response.status}`);
+  }
+
+  return response.json();
 }
 
 export const backend = {
-  async getUser(): Promise<User> {
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(getStoredUser()), 100);
+  async getCurrentUser(): Promise<User | null> {
+    const stored = getUserData();
+    if (stored) return stored;
+
+    try {
+      const user = await apiRequest('/auth/me', {
+        method: 'GET',
+      });
+      localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+      return user;
+    } catch {
+      return null;
+    }
+  },
+
+  async login(email: string, password: string): Promise<User> {
+    const response = await apiRequest('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
     });
+
+    if (response.success && response.user && response.token) {
+      setAuthToken(response.token, response.user);
+      return response.user;
+    }
+
+    throw new Error('Đăng nhập thất bại');
+  },
+
+  async register(data: {
+    companyName: string;
+    industry: string;
+    email: string;
+    password: string;
+  }): Promise<User> {
+    const response = await apiRequest('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    if (response.success && response.user && response.token) {
+      setAuthToken(response.token, response.user);
+      return response.user;
+    }
+
+    throw new Error('Đăng ký thất bại');
+  },
+
+  async logout(): Promise<void> {
+    clearAuth();
+  },
+
+  async requestPasswordReset(email: string): Promise<{ token: string; expiresAt: number }> {
+    const resetUrl = `${window.location.origin}/reset-password`;
+    const response = await apiRequest('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, resetUrl }),
+    });
+
+    if (response.success) {
+      // Nếu có token trong response (khi chưa cấu hình email), trả về
+      if (response.token) {
+        const expiresAt = Date.now() + 30 * 60 * 1000; // 30 phút
+        return { token: response.token, expiresAt };
+      }
+      // Nếu đã gửi email thành công, vẫn cần token để demo
+      // Trong production, user sẽ nhận token qua email
+      throw new Error('Vui lòng kiểm tra email để lấy token khôi phục');
+    }
+
+    throw new Error(response.error || 'Gửi email khôi phục thất bại');
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const response = await apiRequest('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword }),
+    });
+
+    if (response.success && response.user && response.token) {
+      setAuthToken(response.token, response.user);
+      return;
+    }
+
+    throw new Error(response.error || 'Đặt lại mật khẩu thất bại');
+  },
+
+  async getUser(): Promise<User> {
+    const user = await apiRequest('/user', {
+      method: 'GET',
+    });
+    localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+    return user;
   },
 
   async updateUser(updates: Partial<User>): Promise<User> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const currentUser = getStoredUser();
-        const updatedUser = { ...currentUser, ...updates };
-        saveUser(updatedUser);
-        resolve(updatedUser);
-      }, 100);
+    const user = await apiRequest('/user', {
+      method: 'PUT',
+      body: JSON.stringify(updates),
     });
+    localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(user));
+    return user;
   },
 
   async getOrders(): Promise<Order[]> {
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(getStoredOrders()), 100);
+    return apiRequest('/orders', {
+      method: 'GET',
     });
   },
 
   async createOrder(order: Omit<Order, 'id' | 'createdAt'>): Promise<Order> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const orders = getStoredOrders();
-        const newOrder: Order = {
-          ...order,
-          id: Math.random().toString(36).substr(2, 9),
-          createdAt: new Date().toISOString().split('T')[0],
-        };
-        orders.push(newOrder);
-        saveOrders(orders);
-        resolve(newOrder);
-      }, 100);
+    return apiRequest('/orders', {
+      method: 'POST',
+      body: JSON.stringify(order),
     });
   },
 
   async updateOrder(id: string, updates: Partial<Order>): Promise<Order> {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const orders = getStoredOrders();
-        const index = orders.findIndex(o => o.id === id);
-        if (index === -1) {
-          reject(new Error('Order not found'));
-          return;
-        }
-        orders[index] = { ...orders[index], ...updates };
-        saveOrders(orders);
-        resolve(orders[index]);
-      }, 100);
+    return apiRequest(`/orders/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
     });
   },
 
   async deleteOrder(id: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const orders = getStoredOrders();
-        const index = orders.findIndex(o => o.id === id);
-        if (index === -1) {
-          reject(new Error('Order not found'));
-          return;
-        }
-        orders.splice(index, 1);
-        saveOrders(orders);
-        resolve();
-      }, 100);
+    await apiRequest(`/orders/${id}`, {
+      method: 'DELETE',
     });
   },
 
   async getRiskMetrics(): Promise<RiskMetrics> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(getStoredRiskMetrics());
-      }, 100);
+    return apiRequest('/risk-metrics', {
+      method: 'GET',
     });
   },
 };

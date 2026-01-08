@@ -1,6 +1,13 @@
-const mysql = require('mysql2/promise');
-const fs = require('fs');
-const path = require('path');
+import mysql from 'mysql2/promise';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function initDatabase() {
   const config = {
@@ -33,7 +40,17 @@ async function initDatabase() {
 
     console.log('\n✓ Database initialization completed!');
     console.log('Database name: supply_chain_finance');
-    console.log('Tables created: users, orders, risk_metrics');
+    console.log('Tables created: users, orders, risk_metrics, password_reset_tokens');
+    console.log('\n📊 Seed Data Summary:');
+    
+    // Show summary
+    const [users] = await connection.execute('SELECT COUNT(*) as count FROM users');
+    const [orders] = await connection.execute('SELECT COUNT(*) as count FROM orders');
+    const [metrics] = await connection.execute('SELECT COUNT(*) as count FROM risk_metrics');
+    
+    console.log(`- Users: ${users[0].count}`);
+    console.log(`- Orders: ${orders[0].count}`);
+    console.log(`- Risk Metrics: ${metrics[0].count}`);
 
   } catch (error) {
     console.error('Error initializing database:', error.message);
@@ -50,5 +67,4 @@ async function initDatabase() {
   }
 }
 
-require('dotenv').config();
 initDatabase();

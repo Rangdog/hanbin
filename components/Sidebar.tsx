@@ -2,9 +2,10 @@
 interface SidebarProps {
   currentPage: string;
   onNavigate: (page: any) => void;
+  onLogout?: () => void;
 }
 
-export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
+export default function Sidebar({ currentPage, onNavigate, onLogout }: SidebarProps) {
   const menuItems = [
     { id: 'orders', label: 'Order Management', icon: '📋' },
     { id: 'create', label: 'Create Order', icon: '➕' },
@@ -57,6 +58,26 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
           </button>
         ))}
       </nav>
+
+      {onLogout && (
+        <button
+          onClick={onLogout}
+          style={{
+            marginTop: '2rem',
+            width: '100%',
+            padding: '0.75rem 1rem',
+            backgroundColor: '#ef4444',
+            color: 'white',
+            border: 'none',
+            borderRadius: '0.5rem',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: '600',
+          }}
+        >
+          Đăng xuất
+        </button>
+      )}
     </aside>
   );
 }

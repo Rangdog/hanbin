@@ -1,0 +1,305 @@
+import express from 'express';
+import db from '../db.js';
+import crypto from 'crypto';
+
+const router = express.Router();
+
+// Helper để tạo UUID
+function generateUUID() {
+  return crypto.randomUUID();
+}
+
+// Middleware đơn giản để lấy userId (trong production nên dùng JWT)
+function getUserId(req) {
+  // Tạm thời lấy từ header hoặc query
+  return req.headers['x-user-id'] || req.query.userId;
+}
+
+/**
+ * GET /api/orders
+ * Lấy danh sách orders của user
+ */
+router.get('/orders', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Chưa đăng nhập' });
+    }
+
+    const [orders] = await db.execute(
+      `SELECT id, user_id as userId, buyer, amount, interest_rate as interestRate,
+              payment_terms as paymentTerms, status, invoice_number as invoiceNumber,
+              due_date as dueDate, created_at as createdAt
+       FROM orders WHERE user_id = ? ORDER BY created_at DESC`,
+      [userId]
+    );
+
+    res.json(orders.map(order => ({
+      ...order,
+      amount: parseFloat(order.amount),
+      interestRate: parseFloat(order.interestRate),
+      paymentTerms: parseInt(order.paymentTerms),
+    })));
+  } catch (error) {
+    console.error('Get orders error:', error);
+    res.status(500).json({ error: 'Lỗi server khi lấy danh sách orders' });
+  }
+});
+
+/**
+ * POST /api/orders
+ * Tạo order mới
+ */
+router.post('/orders', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Chưa đăng nhập' });
+    }
+
+    const { buyer, amount, interestRate, paymentTerms, invoiceNumber, dueDate, status } = req.body;
+
+    if (!buyer || !amount || !invoiceNumber || !dueDate) {
+      return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin' });
+    }
+
+    const orderId = generateUUID();
+    const createdAt = new Date().toISOString().split('T')[0];
+
+    await db.execute(
+      `INSERT INTO orders (id, user_id, buyer, amount, interest_rate, payment_terms, status, invoice_number, due_date, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [orderId, userId, buyer, amount, interestRate || 3.5, paymentTerms || 30, status || 'pending', invoiceNumber, dueDate, createdAt]
+    );
+
+    res.status(201).json({
+      id: orderId,
+      userId,
+      buyer,
+      amount: parseFloat(amount),
+      interestRate: parseFloat(interestRate || 3.5),
+      paymentTerms: parseInt(paymentTerms || 30),
+      status: status || 'pending',
+      invoiceNumber,
+      dueDate,
+      createdAt,
+    });
+  } catch (error) {
+    console.error('Create order error:', error);
+    res.status(500).json({ error: 'Lỗi server khi tạo order' });
+  }
+});
+
+/**
+ * PUT /api/orders/:id
+ * Cập nhật order
+ */
+router.put('/orders/:id', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Chưa đăng nhập' });
+    }
+
+    const { id } = req.params;
+    const updates = req.body;
+
+    // Kiểm tra order thuộc về user
+    const [orders] = await db.execute('SELECT id FROM orders WHERE id = ? AND user_id = ?', [id, userId]);
+    if (orders.length === 0) {
+      return res.status(404).json({ error: 'Order không tồn tại' });
+    }
+
+    // Build update query
+    const allowedFields = ['buyer', 'amount', 'interest_rate', 'payment_terms', 'status', 'invoice_number', 'due_date'];
+    const updateFields = [];
+    const updateValues = [];
+
+    for (const [key, value] of Object.entries(updates)) {
+      const dbKey = key === 'interestRate' ? 'interest_rate' :
+                    key === 'paymentTerms' ? 'payment_terms' :
+                    key === 'invoiceNumber' ? 'invoice_number' :
+                    key === 'dueDate' ? 'due_date' : key;
+      if (allowedFields.includes(dbKey) && value !== undefined) {
+        updateFields.push(`${dbKey} = ?`);
+        updateValues.push(value);
+      }
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: 'Không có trường nào để cập nhật' });
+    }
+
+    updateValues.push(id);
+    await db.execute(
+      `UPDATE orders SET ${updateFields.join(', ')} WHERE id = ?`,
+      updateValues
+    );
+
+    // Lấy order đã cập nhật
+    const [updatedOrders] = await db.execute(
+      `SELECT id, user_id as userId, buyer, amount, interest_rate as interestRate,
+              payment_terms as paymentTerms, status, invoice_number as invoiceNumber,
+              due_date as dueDate, created_at as createdAt
+       FROM orders WHERE id = ?`,
+      [id]
+    );
+
+    const order = updatedOrders[0];
+    res.json({
+      ...order,
+      amount: parseFloat(order.amount),
+      interestRate: parseFloat(order.interestRate),
+      paymentTerms: parseInt(order.paymentTerms),
+    });
+  } catch (error) {
+    console.error('Update order error:', error);
+    res.status(500).json({ error: 'Lỗi server khi cập nhật order' });
+  }
+});
+
+/**
+ * DELETE /api/orders/:id
+ * Xóa order
+ */
+router.delete('/orders/:id', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Chưa đăng nhập' });
+    }
+
+    const { id } = req.params;
+
+    // Kiểm tra order thuộc về user
+    const [orders] = await db.execute('SELECT id FROM orders WHERE id = ? AND user_id = ?', [id, userId]);
+    if (orders.length === 0) {
+      return res.status(404).json({ error: 'Order không tồn tại' });
+    }
+
+    await db.execute('DELETE FROM orders WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete order error:', error);
+    res.status(500).json({ error: 'Lỗi server khi xóa order' });
+  }
+});
+
+/**
+ * GET /api/user
+ * Lấy thông tin user
+ */
+router.get('/user', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Chưa đăng nhập' });
+    }
+
+    const [users] = await db.execute('SELECT * FROM users WHERE id = ?', [userId]);
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'User không tồn tại' });
+    }
+
+    const user = users[0];
+    res.json({
+      id: user.id,
+      companyName: user.company_name,
+      industry: user.industry,
+      email: user.email,
+      creditLimit: parseFloat(user.credit_limit),
+      availableCredit: parseFloat(user.available_credit),
+      spendingCapacity: parseFloat(user.spending_capacity),
+    });
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Lỗi server' });
+  }
+});
+
+/**
+ * PUT /api/user
+ * Cập nhật thông tin user
+ */
+router.put('/user', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Chưa đăng nhập' });
+    }
+
+    const { companyName, industry, email } = req.body;
+    const updates = {};
+    if (companyName !== undefined) updates.company_name = companyName;
+    if (industry !== undefined) updates.industry = industry;
+    if (email !== undefined) updates.email = email.toLowerCase();
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'Không có trường nào để cập nhật' });
+    }
+
+    const updateFields = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+    const updateValues = [...Object.values(updates), userId];
+
+    await db.execute(`UPDATE users SET ${updateFields} WHERE id = ?`, updateValues);
+
+    // Lấy user đã cập nhật
+    const [users] = await db.execute('SELECT * FROM users WHERE id = ?', [userId]);
+    const user = users[0];
+
+    res.json({
+      id: user.id,
+      companyName: user.company_name,
+      industry: user.industry,
+      email: user.email,
+      creditLimit: parseFloat(user.credit_limit),
+      availableCredit: parseFloat(user.available_credit),
+      spendingCapacity: parseFloat(user.spending_capacity),
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ error: 'Lỗi server khi cập nhật user' });
+  }
+});
+
+/**
+ * GET /api/risk-metrics
+ * Lấy risk metrics của user
+ */
+router.get('/risk-metrics', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Chưa đăng nhập' });
+    }
+
+    const [metrics] = await db.execute(
+      `SELECT credit_score as creditScore, payment_history as paymentHistory,
+              industry_risk as industryRisk, market_conditions as marketConditions
+       FROM risk_metrics WHERE user_id = ? ORDER BY calculated_at DESC LIMIT 1`,
+      [userId]
+    );
+
+    if (metrics.length === 0) {
+      // Trả về giá trị mặc định nếu chưa có
+      return res.json({
+        creditScore: 75,
+        paymentHistory: 80,
+        industryRisk: 60,
+        marketConditions: 70,
+      });
+    }
+
+    res.json({
+      creditScore: parseInt(metrics[0].creditScore),
+      paymentHistory: parseInt(metrics[0].paymentHistory),
+      industryRisk: parseInt(metrics[0].industryRisk),
+      marketConditions: parseInt(metrics[0].marketConditions),
+    });
+  } catch (error) {
+    console.error('Get risk metrics error:', error);
+    res.status(500).json({ error: 'Lỗi server khi lấy risk metrics' });
+  }
+});
+
+export default router;
