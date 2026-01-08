@@ -41,7 +41,7 @@ async function testDatabase() {
     // Test tables exist
     const [tables] = await connection.execute('SHOW TABLES');
     const tableNames = tables.map(t => Object.values(t)[0]);
-    const requiredTables = ['users', 'orders', 'risk_metrics', 'password_reset_tokens'];
+    const requiredTables = ['users', 'orders', 'risk_metrics', 'password_reset_tokens', 'email_verification_tokens'];
     const allTablesExist = requiredTables.every(t => tableNames.includes(t));
     logTest('Required Tables Exist', allTablesExist, allTablesExist ? '' : `Missing: ${requiredTables.filter(t => !tableNames.includes(t)).join(', ')}`);
     
@@ -49,6 +49,11 @@ async function testDatabase() {
     const [users] = await connection.execute('SELECT COUNT(*) as count FROM users');
     const userCount = users[0].count;
     logTest('Users Seeded', userCount >= 8, `Found ${userCount} users`);
+    
+    // Test email_verified field exists
+    const [userColumns] = await connection.execute('DESCRIBE users');
+    const hasEmailVerified = userColumns.some(col => col.Field === 'email_verified');
+    logTest('Email Verified Field Exists', hasEmailVerified, hasEmailVerified ? '' : 'Field email_verified not found');
     
     // Test orders count
     const [orders] = await connection.execute('SELECT COUNT(*) as count FROM orders');
@@ -97,21 +102,43 @@ async function testAPI() {
   if (!serverRunning) return;
   
   // Test register
+  let testVerificationToken = null;
   try {
+    const testEmail = `test${Date.now()}@test.com`;
     const registerResponse = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         companyName: 'Test Company',
         industry: 'Testing',
-        email: `test${Date.now()}@test.com`,
+        email: testEmail,
         password: 'test123456',
       }),
     });
     const registerData = await registerResponse.json();
-    logTest('Register Endpoint', registerResponse.ok && registerData.success, registerData.error || 'Success');
+    const registerOk = registerResponse.ok && registerData.success && registerData.requiresVerification;
+    logTest('Register Endpoint', registerOk, registerData.error || (registerData.requiresVerification ? 'Requires verification' : 'Success'));
+    
+    if (registerData.token) {
+      testVerificationToken = registerData.token;
+    }
   } catch (error) {
     logTest('Register Endpoint', false, error.message);
+  }
+  
+  // Test verify email if we got a token
+  if (testVerificationToken) {
+    try {
+      const verifyResponse = await fetch(`${API_BASE_URL}/auth/verify-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: testVerificationToken }),
+      });
+      const verifyData = await verifyResponse.json();
+      logTest('Verify Email Endpoint', verifyResponse.ok && verifyData.success, verifyData.error || 'Email verified successfully');
+    } catch (error) {
+      logTest('Verify Email Endpoint', false, error.message);
+    }
   }
   
   // Test login with demo user

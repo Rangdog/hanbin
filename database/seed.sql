@@ -2,6 +2,7 @@ USE supply_chain_finance;
 
 -- Clear existing data (for re-seeding)
 SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE email_verification_tokens;
 TRUNCATE TABLE password_reset_tokens;
 TRUNCATE TABLE risk_metrics;
 TRUNCATE TABLE orders;
@@ -11,15 +12,16 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- Insert multiple sample users
 -- Tất cả users đều có mật khẩu: password123
 -- Hash được tạo bằng bcrypt với cost=10
-INSERT INTO users (id, company_name, industry, email, password_hash, credit_limit, available_credit, spending_capacity) VALUES
-('user-001', 'Tech Innovations Ltd', 'Technology', 'contact@techinnovations.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 500000.00, 350000.00, 425000.00),
-('user-002', 'Global Manufacturing Co', 'Manufacturing', 'info@globalmfg.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 750000.00, 600000.00, 675000.00),
-('user-003', 'Retail Solutions Inc', 'Retail', 'hello@retailsolutions.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 300000.00, 250000.00, 275000.00),
-('user-004', 'Food & Beverage Group', 'Food & Beverage', 'contact@fngroup.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 400000.00, 320000.00, 360000.00),
-('user-005', 'Healthcare Systems', 'Healthcare', 'info@healthcaresys.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 1000000.00, 850000.00, 925000.00),
-('user-006', 'Energy Solutions Ltd', 'Energy', 'sales@energysolutions.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 800000.00, 650000.00, 725000.00),
-('user-007', 'Logistics Pro', 'Logistics', 'contact@logisticspro.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 600000.00, 480000.00, 540000.00),
-('user-008', 'Construction Masters', 'Construction', 'info@constructionmasters.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 900000.00, 720000.00, 810000.00);
+-- email_verified = 1 để có thể đăng nhập ngay (users mẫu)
+INSERT INTO users (id, company_name, industry, email, password_hash, email_verified, credit_limit, available_credit, spending_capacity) VALUES
+('user-001', 'Tech Innovations Ltd', 'Technology', 'contact@techinnovations.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 1, 500000.00, 350000.00, 425000.00),
+('user-002', 'Global Manufacturing Co', 'Manufacturing', 'info@globalmfg.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 1, 750000.00, 600000.00, 675000.00),
+('user-003', 'Retail Solutions Inc', 'Retail', 'hello@retailsolutions.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 1, 300000.00, 250000.00, 275000.00),
+('user-004', 'Food & Beverage Group', 'Food & Beverage', 'contact@fngroup.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 1, 400000.00, 320000.00, 360000.00),
+('user-005', 'Healthcare Systems', 'Healthcare', 'info@healthcaresys.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 1, 1000000.00, 850000.00, 925000.00),
+('user-006', 'Energy Solutions Ltd', 'Energy', 'sales@energysolutions.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 1, 800000.00, 650000.00, 725000.00),
+('user-007', 'Logistics Pro', 'Logistics', 'contact@logisticspro.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 1, 600000.00, 480000.00, 540000.00),
+('user-008', 'Construction Masters', 'Construction', 'info@constructionmasters.com', '$2b$10$N9qo8uLOickgx2ZMRZo5ieJ7b6Kp..u8aORdzdrDam6DCeU0Yv1ui', 1, 900000.00, 720000.00, 810000.00);
 
 -- Insert sample orders for user-001 (Tech Innovations Ltd)
 INSERT INTO orders (id, user_id, buyer, amount, interest_rate, payment_terms, status, invoice_number, due_date, created_at) VALUES

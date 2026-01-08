@@ -82,17 +82,25 @@ export const backend = {
   },
 
   async login(email: string, password: string): Promise<User> {
-    const response = await apiRequest('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const response = await apiRequest('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (response.success && response.user && response.token) {
-      setAuthToken(response.token, response.user);
-      return response.user;
+      if (response.success && response.user && response.token) {
+        setAuthToken(response.token, response.user);
+        return response.user;
+      }
+
+      throw new Error(response.error || 'Đăng nhập thất bại');
+    } catch (error: any) {
+      // Nếu email chưa được verify, throw error với message rõ ràng
+      if (error.message && error.message.includes('chưa được xác nhận')) {
+        throw new Error(error.message);
+      }
+      throw error;
     }
-
-    throw new Error('Đăng nhập thất bại');
   },
 
   async register(data: {
@@ -100,10 +108,37 @@ export const backend = {
     industry: string;
     email: string;
     password: string;
-  }): Promise<User> {
+  }): Promise<{ requiresVerification: boolean; message?: string; token?: string; verifyUrl?: string }> {
     const response = await apiRequest('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+
+    if (response.success) {
+      // Nếu cần xác nhận email, trả về thông tin verification
+      if (response.requiresVerification) {
+        return {
+          requiresVerification: true,
+          message: response.message,
+          token: response.token,
+          verifyUrl: response.verifyUrl,
+        };
+      }
+      
+      // Nếu không cần xác nhận (fallback - không nên xảy ra)
+      if (response.user && response.token) {
+        setAuthToken(response.token, response.user);
+        return { requiresVerification: false };
+      }
+    }
+
+    throw new Error(response.error || 'Đăng ký thất bại');
+  },
+
+  async verifyEmail(token: string): Promise<User> {
+    const response = await apiRequest('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
     });
 
     if (response.success && response.user && response.token) {
@@ -111,7 +146,7 @@ export const backend = {
       return response.user;
     }
 
-    throw new Error('Đăng ký thất bại');
+    throw new Error(response.error || 'Xác nhận email thất bại');
   },
 
   async logout(): Promise<void> {

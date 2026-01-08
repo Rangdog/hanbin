@@ -1,12 +1,12 @@
-import nodemailer from 'nodemailer';
-import dotenv from 'dotenv';
+import nodemailer from "nodemailer";
+import dotenv from "dotenv";
 
 dotenv.config();
 
 // Tạo transporter cho email
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT || "587"),
   secure: false, // true for 465, false for other ports
   auth: {
     user: process.env.SMTP_USER,
@@ -24,7 +24,7 @@ export async function sendPasswordResetEmail(to, token, resetUrl) {
   const mailOptions = {
     from: `"Supply Chain Finance" <${process.env.SMTP_USER}>`,
     to,
-    subject: 'Khôi phục mật khẩu - Supply Chain Finance',
+    subject: "Khôi phục mật khẩu - Supply Chain Finance",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #2563eb;">Khôi phục mật khẩu</h2>
@@ -61,11 +61,66 @@ export async function sendPasswordResetEmail(to, token, resetUrl) {
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent:', info.messageId);
+    console.log("Email sent:", info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending email:', error);
-    throw new Error('Không thể gửi email. Vui lòng kiểm tra cấu hình SMTP.');
+    console.error("Error sending email:", error);
+    throw new Error("Không thể gửi email. Vui lòng kiểm tra cấu hình SMTP.");
+  }
+}
+
+/**
+ * Gửi email xác nhận đăng ký
+ * @param {string} to - Email người nhận
+ * @param {string} token - Token xác nhận
+ * @param {string} verifyUrl - URL để verify email (frontend URL + token)
+ */
+export async function sendVerificationEmail(to, token, verifyUrl) {
+  const mailOptions = {
+    from: `"Supply Chain Finance" <${process.env.SMTP_USER}>`,
+    to,
+    subject: "Xác nhận đăng ký tài khoản - Supply Chain Finance",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Xác nhận đăng ký tài khoản</h2>
+        <p>Xin chào,</p>
+        <p>Cảm ơn bạn đã đăng ký tài khoản tại Supply Chain Finance.</p>
+        <p>Vui lòng click vào link bên dưới để xác nhận email của bạn:</p>
+        <p style="margin: 20px 0;">
+          <a href="${verifyUrl}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+            Xác nhận email
+          </a>
+        </p>
+        <p>Hoặc copy và dán link sau vào trình duyệt:</p>
+        <p style="background-color: #f3f4f6; padding: 12px; border-radius: 4px; word-break: break-all;">
+          ${verifyUrl}
+        </p>
+        <p><strong>Token của bạn:</strong> <code style="background-color: #f3f4f6; padding: 4px 8px; border-radius: 4px;">${token}</code></p>
+        <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+          Link này sẽ hết hạn sau 24 giờ.<br>
+          Nếu bạn không đăng ký tài khoản này, vui lòng bỏ qua email này.
+        </p>
+      </div>
+    `,
+    text: `
+      Xác nhận đăng ký tài khoản
+      
+      Cảm ơn bạn đã đăng ký. Vui lòng truy cập link sau để xác nhận email:
+      ${verifyUrl}
+      
+      Token: ${token}
+      
+      Link này sẽ hết hạn sau 24 giờ.
+    `,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Verification email sent:", info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending verification email:", error);
+    throw new Error("Không thể gửi email. Vui lòng kiểm tra cấu hình SMTP.");
   }
 }
 

@@ -40,7 +40,7 @@ async function initDatabase() {
 
     console.log('\n✓ Database initialization completed!');
     console.log('Database name: supply_chain_finance');
-    console.log('Tables created: users, orders, risk_metrics, password_reset_tokens');
+    console.log('Tables created: users, orders, risk_metrics, password_reset_tokens, email_verification_tokens');
     console.log('\n📊 Seed Data Summary:');
     
     // Show summary

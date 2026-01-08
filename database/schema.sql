@@ -8,12 +8,14 @@ CREATE TABLE IF NOT EXISTS users (
   industry VARCHAR(100) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
+  email_verified TINYINT(1) NOT NULL DEFAULT 0,
   credit_limit DECIMAL(15, 2) NOT NULL DEFAULT 0,
   available_credit DECIMAL(15, 2) NOT NULL DEFAULT 0,
   spending_capacity DECIMAL(15, 2) NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX idx_email (email)
+  INDEX idx_email (email),
+  INDEX idx_email_verified (email_verified)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Orders table
@@ -51,6 +53,19 @@ CREATE TABLE IF NOT EXISTS risk_metrics (
 
 -- Password reset tokens table
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id VARCHAR(36) NOT NULL,
+  token VARCHAR(255) NOT NULL UNIQUE,
+  expires_at DATETIME NOT NULL,
+  used TINYINT(1) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_token (token),
+  INDEX idx_expires_at (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Email verification tokens table
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
   id INT AUTO_INCREMENT PRIMARY KEY,
   user_id VARCHAR(36) NOT NULL,
   token VARCHAR(255) NOT NULL UNIQUE,

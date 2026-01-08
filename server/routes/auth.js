@@ -2,7 +2,7 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import db from '../db.js';
-import { sendPasswordResetEmail, isEmailConfigured } from '../email.js';
+import { sendPasswordResetEmail, sendVerificationEmail, isEmailConfigured } from '../email.js';
 
 const router = express.Router();
 
@@ -46,11 +46,11 @@ router.post('/register', async (req, res) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Tạo user mới
+    // Tạo user mới (email_verified = 0)
     const userId = generateUUID();
     await db.execute(
-      `INSERT INTO users (id, company_name, industry, email, password_hash, credit_limit, available_credit, spending_capacity)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users (id, company_name, industry, email, password_hash, email_verified, credit_limit, available_credit, spending_capacity)
+       VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)`,
       [userId, companyName, industry, email.toLowerCase(), passwordHash, 500000, 500000, 500000]
     );
 
@@ -61,22 +61,51 @@ router.post('/register', async (req, res) => {
       [userId, 75, 80, 60, 70]
     );
 
-    // Tạo session token (JWT đơn giản hoặc session ID)
-    const sessionToken = generateToken();
+    // Tạo verification token
+    const verificationToken = generateToken();
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24); // 24 giờ
 
-    res.status(201).json({
-      success: true,
-      user: {
-        id: userId,
-        companyName,
-        industry,
-        email: email.toLowerCase(),
-        creditLimit: 500000,
-        availableCredit: 500000,
-        spendingCapacity: 500000,
-      },
-      token: sessionToken,
-    });
+    // Lưu token vào database
+    await db.execute(
+      `INSERT INTO email_verification_tokens (user_id, token, expires_at)
+       VALUES (?, ?, ?)`,
+      [userId, verificationToken, expiresAt]
+    );
+
+    // Gửi email xác nhận
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const verifyUrl = `${frontendUrl}/verify-email?token=${verificationToken}`;
+
+    if (isEmailConfigured()) {
+      try {
+        await sendVerificationEmail(email.toLowerCase(), verificationToken, verifyUrl);
+        return res.status(201).json({
+          success: true,
+          message: 'Đăng ký thành công! Vui lòng kiểm tra email để xác nhận tài khoản.',
+          requiresVerification: true,
+        });
+      } catch (emailError) {
+        console.error('Email error:', emailError);
+        // Nếu không gửi được email, vẫn trả về token để demo
+        return res.status(201).json({
+          success: true,
+          message: 'Đăng ký thành công! Email chưa được cấu hình. Token xác nhận:',
+          requiresVerification: true,
+          token: verificationToken,
+          verifyUrl,
+        });
+      }
+    } else {
+      // Nếu chưa cấu hình email, trả về token để demo
+      return res.status(201).json({
+        success: true,
+        message: 'Đăng ký thành công! Email chưa được cấu hình. Token xác nhận:',
+        requiresVerification: true,
+        token: verificationToken,
+        verifyUrl,
+      });
+    }
   } catch (error) {
     console.error('Register error:', error);
     res.status(500).json({ error: 'Lỗi server khi đăng ký' });
@@ -106,6 +135,14 @@ router.post('/login', async (req, res) => {
     }
 
     const user = users[0];
+
+    // Kiểm tra email đã được xác nhận chưa
+    if (!user.email_verified) {
+      return res.status(403).json({ 
+        error: 'Email chưa được xác nhận. Vui lòng kiểm tra email và xác nhận tài khoản trước khi đăng nhập.',
+        requiresVerification: true 
+      });
+    }
 
     // Kiểm tra password
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
@@ -279,6 +316,70 @@ router.post('/reset-password', async (req, res) => {
   } catch (error) {
     console.error('Reset password error:', error);
     res.status(500).json({ error: 'Lỗi server khi đặt lại mật khẩu' });
+  }
+});
+
+/**
+ * POST /api/auth/verify-email
+ * Xác nhận email với token
+ */
+router.post('/verify-email', async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ error: 'Vui lòng nhập token xác nhận' });
+    }
+
+    // Tìm token
+    const [tokens] = await db.execute(
+      `SELECT * FROM email_verification_tokens
+       WHERE token = ? AND used = 0 AND expires_at > NOW()`,
+      [token]
+    );
+
+    if (tokens.length === 0) {
+      return res.status(400).json({ error: 'Token không hợp lệ hoặc đã hết hạn' });
+    }
+
+    const tokenRecord = tokens[0];
+
+    // Cập nhật email_verified = 1
+    await db.execute(
+      'UPDATE users SET email_verified = 1 WHERE id = ?',
+      [tokenRecord.user_id]
+    );
+
+    // Đánh dấu token đã dùng
+    await db.execute(
+      'UPDATE email_verification_tokens SET used = 1 WHERE id = ?',
+      [tokenRecord.id]
+    );
+
+    // Lấy thông tin user để trả về
+    const [users] = await db.execute('SELECT * FROM users WHERE id = ?', [tokenRecord.user_id]);
+    const user = users[0];
+
+    // Tạo session token để tự động đăng nhập
+    const sessionToken = generateToken();
+
+    res.json({
+      success: true,
+      message: 'Email đã được xác nhận thành công!',
+      user: {
+        id: user.id,
+        companyName: user.company_name,
+        industry: user.industry,
+        email: user.email,
+        creditLimit: parseFloat(user.credit_limit),
+        availableCredit: parseFloat(user.available_credit),
+        spendingCapacity: parseFloat(user.spending_capacity),
+      },
+      token: sessionToken,
+    });
+  } catch (error) {
+    console.error('Verify email error:', error);
+    res.status(500).json({ error: 'Lỗi server khi xác nhận email' });
   }
 });
 

@@ -5,6 +5,7 @@ Hệ thống quản lý tài chính chuỗi cung ứng hiện đại được x�
 ## ✨ Tính Năng
 
 - 🔐 **Đăng nhập / Đăng ký** - Xác thực người dùng với MySQL
+- ✉️ **Xác nhận email** - Bắt buộc xác nhận email sau khi đăng ký để kích hoạt tài khoản
 - 🔑 **Quên mật khẩu** - Khôi phục mật khẩu qua email
 - 📋 **Quản lý đơn hàng** - Tạo, xem, cập nhật và xóa đơn hàng
 - 👤 **Quản lý hồ sơ** - Cập nhật thông tin công ty và người dùng
@@ -170,9 +171,19 @@ Sau khi khởi tạo database, bạn có thể đăng nhập với tài khoản 
 
 Hoặc bạn có thể đăng ký tài khoản mới từ giao diện.
 
+### ⚠️ Lưu ý về Xác nhận Email
+
+**Sau khi đăng ký:**
+1. Hệ thống sẽ gửi email xác nhận (nếu đã cấu hình SMTP)
+2. Bạn cần xác nhận email trước khi có thể đăng nhập
+3. Nếu chưa cấu hình email, token sẽ được hiển thị trên màn hình để bạn có thể test
+4. Token xác nhận có thời hạn 24 giờ
+
+**Tài khoản demo** đã được xác nhận email sẵn nên có thể đăng nhập ngay.
+
 ## 📧 Cấu Hình Email (Tùy Chọn)
 
-Để gửi email khôi phục mật khẩu thật, bạn cần cấu hình SMTP trong file `.env`.
+Để gửi email xác nhận đăng ký và khôi phục mật khẩu thật, bạn cần cấu hình SMTP trong file `.env`.
 
 ### Với Gmail:
 
@@ -194,7 +205,10 @@ Hoặc bạn có thể đăng ký tài khoản mới từ giao diện.
 
 Cập nhật `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` trong `.env` theo cấu hình của nhà cung cấp email của bạn.
 
-**Lưu ý:** Nếu chưa cấu hình email, hệ thống vẫn hoạt động bình thường. Khi yêu cầu khôi phục mật khẩu, token sẽ được trả về trong response để bạn có thể test.
+**Lưu ý:** 
+- Nếu chưa cấu hình email, hệ thống vẫn hoạt động bình thường
+- Token xác nhận email và token khôi phục mật khẩu sẽ được hiển thị trên màn hình để bạn có thể test
+- Trong môi trường production, bạn nên cấu hình SMTP để gửi email thật
 
 ## 🛠️ Scripts Có Sẵn
 
@@ -204,6 +218,7 @@ Cập nhật `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` trong `.env`
 - `npm run build` - Build production cho frontend
 - `npm run preview` - Preview production build
 - `npm run db:init` - Khởi tạo database và seed dữ liệu
+- `npm run test` - Chạy test để kiểm tra database và API (cần MySQL và backend server đang chạy)
 
 ## 📁 Cấu Trúc Project
 
@@ -231,6 +246,29 @@ hanbin/
 ├── .env                   # Environment variables (tạo mới)
 └── package.json           # Dependencies
 ```
+
+## 📡 API Endpoints
+
+### Authentication
+- `POST /api/auth/register` - Đăng ký tài khoản mới (cần xác nhận email)
+- `POST /api/auth/verify-email` - Xác nhận email với token
+- `POST /api/auth/login` - Đăng nhập (yêu cầu email đã được xác nhận)
+- `POST /api/auth/forgot-password` - Yêu cầu khôi phục mật khẩu
+- `POST /api/auth/reset-password` - Đặt lại mật khẩu với token
+- `GET /api/auth/me` - Lấy thông tin user hiện tại
+
+### User
+- `GET /api/user` - Lấy thông tin user
+- `PUT /api/user` - Cập nhật thông tin user
+
+### Orders
+- `GET /api/orders` - Lấy danh sách orders
+- `POST /api/orders` - Tạo order mới
+- `PUT /api/orders/:id` - Cập nhật order
+- `DELETE /api/orders/:id` - Xóa order
+
+### Risk Metrics
+- `GET /api/risk-metrics` - Lấy risk metrics của user
 
 ## 🔧 Khắc Phục Sự Cố
 
@@ -278,9 +316,43 @@ npm install
 3. Kiểm tra log trong console của backend server
 4. Nếu chưa cấu hình email, hệ thống vẫn hoạt động và trả về token trong response
 
+### Lỗi "Email chưa được xác nhận" khi đăng nhập
+
+- Sau khi đăng ký, bạn cần xác nhận email trước khi có thể đăng nhập
+- Kiểm tra email (hoặc token demo trên màn hình) và nhập token vào form "Xác nhận email"
+- Token có thời hạn 24 giờ
+- Nếu token hết hạn, bạn có thể đăng ký lại hoặc liên hệ admin để kích hoạt tài khoản
+
+## 🧪 Chạy Test
+
+Để kiểm tra hệ thống hoạt động đúng:
+
+1. **Cấu hình MySQL** trong file `.env`
+2. **Khởi tạo database**:
+   ```bash
+   npm run db:init
+   ```
+3. **Chạy backend server** (terminal 1):
+   ```bash
+   npm run dev:server
+   ```
+4. **Chạy test** (terminal 2):
+   ```bash
+   npm run test
+   ```
+
+Test sẽ kiểm tra:
+- ✅ Kết nối database
+- ✅ Các bảng đã được tạo (bao gồm `email_verification_tokens`)
+- ✅ Seed data (users, orders, risk metrics)
+- ✅ API endpoints (register, login, verify-email, forgot-password, etc.)
+
+Xem chi tiết trong [TEST_REPORT.md](./TEST_REPORT.md)
+
 ## 📚 Tài Liệu Thêm
 
 - [DATABASE_SETUP.md](./DATABASE_SETUP.md) - Hướng dẫn chi tiết về database
+- [TEST_REPORT.md](./TEST_REPORT.md) - Báo cáo kiểm tra hệ thống
 - [server/README.md](./server/README.md) - Tài liệu backend API
 
 ## 🔒 Bảo Mật

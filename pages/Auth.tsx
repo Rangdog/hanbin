@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type React from 'react';
 import { backend } from '../services/backend';
 
-type Mode = 'login' | 'register' | 'forgot' | 'reset';
+type Mode = 'login' | 'register' | 'forgot' | 'reset' | 'verify';
 
 interface AuthProps {
   onAuthenticated: () => Promise<void> | void;
@@ -18,10 +18,12 @@ export default function Auth({ onAuthenticated }: AuthProps) {
     confirmPassword: '',
     resetToken: '',
     newPassword: '',
+    verificationToken: '',
   });
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [lastSentToken, setLastSentToken] = useState<string | null>(null);
+  const [verificationToken, setVerificationToken] = useState<string | null>(null);
 
   const switchMode = (next: Mode) => {
     setMode(next);
@@ -58,18 +60,46 @@ export default function Auth({ onAuthenticated }: AuthProps) {
     setStatus('loading');
     setMessage('');
     try {
-      await backend.register({
+      const response = await backend.register({
         companyName: form.companyName,
         industry: form.industry,
         email: form.email,
         password: form.password,
       });
-      setStatus('success');
-      setMessage('Đăng ký thành công, bạn đã được đăng nhập');
-      await onAuthenticated();
+      
+      // Nếu cần xác nhận email
+      if (response.requiresVerification) {
+        setStatus('success');
+        setMessage(response.message || 'Đăng ký thành công! Vui lòng kiểm tra email để xác nhận tài khoản.');
+        if (response.token) {
+          setVerificationToken(response.token);
+          setForm(prev => ({ ...prev, verificationToken: response.token }));
+        }
+        setMode('verify');
+      } else {
+        // Nếu không cần xác nhận (fallback)
+        setStatus('success');
+        setMessage('Đăng ký thành công, bạn đã được đăng nhập');
+        await onAuthenticated();
+      }
     } catch (err: any) {
       setStatus('error');
       setMessage(err?.message || 'Đăng ký thất bại');
+    }
+  };
+
+  const handleVerifyEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus('loading');
+    setMessage('');
+    try {
+      await backend.verifyEmail(form.verificationToken);
+      setStatus('success');
+      setMessage('Email đã được xác nhận thành công! Bạn đã được đăng nhập.');
+      await onAuthenticated();
+    } catch (err: any) {
+      setStatus('error');
+      setMessage(err?.message || 'Xác nhận email thất bại');
     }
   };
 
@@ -140,6 +170,7 @@ export default function Auth({ onAuthenticated }: AuthProps) {
         {mode === 'register' && 'Đăng ký'}
         {mode === 'forgot' && 'Quên mật khẩu'}
         {mode === 'reset' && 'Đặt lại mật khẩu'}
+        {mode === 'verify' && 'Xác nhận email'}
       </h1>
 
       <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
@@ -192,6 +223,25 @@ export default function Auth({ onAuthenticated }: AuthProps) {
           {lastSentToken && (
             <p style={{ fontSize: '0.85rem', color: '#374151' }}>
               (Demo) Token gần nhất đã gửi: <code>{lastSentToken}</code>
+            </p>
+          )}
+        </form>
+      )}
+
+      {mode === 'verify' && (
+        <form onSubmit={handleVerifyEmail} style={{ display: 'grid', gap: '1rem' }}>
+          <div style={{ padding: '1rem', backgroundColor: '#e0f2fe', borderRadius: '0.5rem', marginBottom: '1rem' }}>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: '#0369a1' }}>
+              Vui lòng kiểm tra email của bạn và nhập token xác nhận bên dưới.
+            </p>
+          </div>
+          <Input label="Token xác nhận (từ email)" value={form.verificationToken} onChange={(e) => updateField('verificationToken', e.target.value)} required />
+          <button type="submit" disabled={status === 'loading'} style={primaryButtonStyle(status === 'loading')}>
+            {status === 'loading' ? 'Đang xác nhận...' : 'Xác nhận email'}
+          </button>
+          {verificationToken && (
+            <p style={{ fontSize: '0.85rem', color: '#374151' }}>
+              (Demo) Token đã được gửi: <code>{verificationToken}</code>
             </p>
           )}
         </form>
