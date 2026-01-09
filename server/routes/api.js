@@ -25,7 +25,11 @@ function getUserId(req) {
 // Middleware để validate authentication
 function requireAuth(req, res, next) {
   const userId = getUserId(req);
+  console.log('[requireAuth] X-User-Id header:', req.headers['x-user-id']);
+  console.log('[requireAuth] userId:', userId);
+  
   if (!userId) {
+    console.error('[requireAuth] No userId found! Available headers:', Object.keys(req.headers).filter(h => h.toLowerCase().includes('user')));
     return res.status(401).json({ error: 'Chưa đăng nhập' });
   }
   // Gán userId vào req để các route khác sử dụng
@@ -64,6 +68,14 @@ router.post('/orders/calculate-risk', async (req, res) => {
 router.get('/orders', requireAuth, async (req, res) => {
   try {
     const userId = req.userId;
+    
+    // Log để debug
+    console.log('GET /api/orders - userId:', userId);
+    
+    if (!userId) {
+      console.error('GET /api/orders - userId is missing!');
+      return res.status(401).json({ error: 'Chưa đăng nhập' });
+    }
 
     const [orders] = await db.execute(
       `SELECT id, user_id as userId, buyer, amount, interest_rate as interestRate,
@@ -75,6 +87,8 @@ router.get('/orders', requireAuth, async (req, res) => {
        FROM orders WHERE user_id = ? ORDER BY created_at DESC`,
       [userId]
     );
+    
+    console.log('GET /api/orders - Found', orders.length, 'orders for user', userId);
 
     const formattedOrders = orders.map(order => {
       try {
@@ -97,11 +111,19 @@ router.get('/orders', requireAuth, async (req, res) => {
       }
     }).filter(order => order !== null);
 
+    console.log('GET /api/orders - Returning', formattedOrders.length, 'formatted orders');
     res.json(formattedOrders);
   } catch (error) {
     console.error('Get orders error:', error);
+    console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
-    res.status(500).json({ error: 'Lỗi server khi lấy danh sách orders', details: error.message });
+    console.error('Error code:', error.code);
+    console.error('Error sqlState:', error.sqlState);
+    res.status(500).json({ 
+      error: 'Lỗi server khi lấy danh sách orders', 
+      details: error.message,
+      code: error.code 
+    });
   }
 });
 
