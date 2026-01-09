@@ -129,8 +129,7 @@ router.get('/orders', requireAdmin, async (req, res) => {
     let query = `
       SELECT o.id, o.user_id as userId, u.company_name as customerName, u.email as customerEmail,
              o.buyer, o.amount, o.interest_rate as interestRate,
-             o.payment_terms as paymentTerms, o.status, o.invoice_number as invoiceNumber,
-             o.created_at as createdAt,
+             o.payment_terms as paymentTerms, o.status, o.created_at as createdAt,
              o.customer_income as customerIncome, o.installment_period as installmentPeriod,
              o.monthly_payment as monthlyPayment, o.total_amount_with_interest as totalAmountWithInterest,
              o.risk_score as riskScore, o.risk_level as riskLevel
@@ -226,8 +225,7 @@ router.get('/orders/:id', requireAdmin, async (req, res) => {
     const [orders] = await db.execute(
       `SELECT o.id, o.user_id as userId, u.company_name as customerName, u.email as customerEmail,
               o.buyer, o.amount, o.interest_rate as interestRate,
-              o.payment_terms as paymentTerms, o.status, o.invoice_number as invoiceNumber,
-              o.created_at as createdAt,
+              o.payment_terms as paymentTerms, o.status, o.created_at as createdAt,
               o.customer_income as customerIncome, o.installment_period as installmentPeriod,
               o.monthly_payment as monthlyPayment, o.total_amount_with_interest as totalAmountWithInterest,
               o.risk_score as riskScore, o.risk_level as riskLevel
@@ -297,14 +295,13 @@ router.put('/orders/:id', requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Order không tồn tại' });
     }
 
-    const allowedFields = ['buyer', 'amount', 'interest_rate', 'payment_terms', 'status', 'invoice_number'];
+    const allowedFields = ['buyer', 'amount', 'interest_rate', 'payment_terms', 'status'];
     const updateFields = [];
     const updateValues = [];
 
     for (const [key, value] of Object.entries(updates)) {
       const dbKey = key === 'interestRate' ? 'interest_rate' :
-                    key === 'paymentTerms' ? 'payment_terms' :
-                    key === 'invoiceNumber' ? 'invoice_number' : key;
+                    key === 'paymentTerms' ? 'payment_terms' : key;
       if (allowedFields.includes(dbKey) && value !== undefined) {
         updateFields.push(`${dbKey} = ?`);
         updateValues.push(value);
@@ -324,8 +321,7 @@ router.put('/orders/:id', requireAdmin, async (req, res) => {
     // Lấy lại order đã cập nhật
     const [updatedOrders] = await db.execute(
       `SELECT o.id, o.user_id as userId, u.company_name as customerName, o.buyer, o.amount, o.interest_rate as interestRate,
-              o.payment_terms as paymentTerms, o.status, o.invoice_number as invoiceNumber,
-              o.created_at as createdAt
+              o.payment_terms as paymentTerms, o.status, o.created_at as createdAt
        FROM orders o
        JOIN users u ON o.user_id = u.id
        WHERE o.id = ?`,
@@ -413,8 +409,7 @@ router.get('/customers/:id/orders', requireAdmin, async (req, res) => {
     const { id } = req.params;
     const [orders] = await db.execute(
       `SELECT id, buyer, amount, interest_rate as interestRate,
-              payment_terms as paymentTerms, status, invoice_number as invoiceNumber,
-              created_at as createdAt
+              payment_terms as paymentTerms, status, created_at as createdAt
        FROM orders
        WHERE user_id = ?
        ORDER BY created_at DESC`,

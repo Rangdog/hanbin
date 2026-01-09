@@ -269,7 +269,6 @@ Hoặc bạn có thể đăng ký tài khoản mới từ giao diện (sẽ là 
 
 2. **Điền thông tin đơn hàng:**
    - **Buyer:** Tên người mua
-   - **Invoice Number:** Số hóa đơn
 
 3. **Buy Now Pay Later (BNPL) - Bắt buộc:**
    - **Thu nhập hàng tháng:** Nhập thu nhập của bạn (VND/tháng)
@@ -280,6 +279,11 @@ Hoặc bạn có thể đăng ký tài khoản mới từ giao diện (sẽ là 
      - Tính lãi suất điều chỉnh dựa trên rủi ro
      - Tính số tiền trả mỗi tháng
      - Tính tổng tiền phải trả (bao gồm lãi)
+   - **Hạn mức tín dụng:** 
+     - Hạn mức cố định: 50,000,000 VND (50 triệu VND)
+     - Used credit = Tổng `totalAmountWithInterest` của các đơn hàng chưa hoàn thành (status: pending, approved)
+     - Sau mỗi tháng, used credit sẽ tự động giảm đi `monthlyPayment` của các đơn hàng đã trả
+     - Nếu used credit + tổng tiền đơn hàng mới > 50 triệu VND, hệ thống sẽ từ chối tạo đơn hàng
    - Nếu Risk Level là "very_high", đơn hàng sẽ bị từ chối tự động
    - Nếu Risk Level là "high", đơn hàng sẽ ở trạng thái "pending" chờ admin duyệt
    - Nếu Risk Level là "low" hoặc "medium", đơn hàng sẽ được tự động "approved"
@@ -304,7 +308,6 @@ Hoặc bạn có thể đăng ký tài khoản mới từ giao diện (sẽ là 
   - Hiển thị tất cả đơn hàng của bạn
   - Lọc theo trạng thái: All, Pending, Approved, Rejected, Completed
   - Mỗi đơn hàng hiển thị:
-    - Invoice Number
     - Buyer
     - Số tiền
     - Trạng thái (màu sắc)
@@ -314,7 +317,7 @@ Hoặc bạn có thể đăng ký tài khoản mới từ giao diện (sẽ là 
 
 - **Cập nhật đơn hàng:**
   - Nhấn "Edit" để cập nhật thông tin đơn hàng
-  - Có thể thay đổi: Buyer, Amount, Interest Rate, Payment Terms, Status, Invoice Number
+  - Có thể thay đổi: Buyer, Amount, Interest Rate, Payment Terms, Status
 
 - **Xóa đơn hàng:**
   - Nhấn "Delete" và xác nhận

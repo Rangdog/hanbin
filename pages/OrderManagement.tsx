@@ -103,7 +103,7 @@ export default function OrderManagement() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
                 <div>
                   <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '0.5rem' }}>
-                    {order.invoiceNumber}
+                    Order #{order.id.substring(0, 8)}
                   </h3>
                   <p style={{ color: '#6b7280', marginBottom: '0.25rem' }}>Buyer: {order.buyer}</p>
                 </div>

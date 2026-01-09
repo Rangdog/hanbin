@@ -79,8 +79,7 @@ router.get('/orders', requireAuth, async (req, res) => {
 
     const [orders] = await db.execute(
       `SELECT id, user_id as userId, buyer, amount, interest_rate as interestRate,
-              payment_terms as paymentTerms, status, invoice_number as invoiceNumber,
-              created_at as createdAt,
+              payment_terms as paymentTerms, status, created_at as createdAt,
               customer_income as customerIncome, installment_period as installmentPeriod,
               monthly_payment as monthlyPayment, total_amount_with_interest as totalAmountWithInterest,
               risk_score as riskScore, risk_level as riskLevel, approved_by_admin as approvedByAdmin
@@ -144,7 +143,7 @@ router.post('/orders', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Tài khoản của bạn đã bị khóa' });
     }
 
-    const { buyer, amount, invoiceNumber, status, items, customerIncome, installmentPeriod } = req.body;
+    const { buyer, amount, status, items, customerIncome, installmentPeriod } = req.body;
 
     // Validation: Nếu có items thì tính amount từ items, nếu không thì dùng amount trực tiếp
     let finalAmount = amount;
@@ -153,7 +152,7 @@ router.post('/orders', requireAuth, async (req, res) => {
       finalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
     }
 
-    if (!buyer || !finalAmount || !invoiceNumber) {
+    if (!buyer || !finalAmount) {
       return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin' });
     }
 
@@ -171,6 +170,38 @@ router.post('/orders', requireAuth, async (req, res) => {
     const principal = finalAmount;
     const monthlyPayment = calculateMonthlyPayment(principal, finalInterestRate, installmentPeriod);
     const totalAmountWithInterest = monthlyPayment * installmentPeriod;
+
+    // Kiểm tra credit limit: Tính used credit hiện tại
+    const CREDIT_LIMIT = 50000000; // 50 triệu VND
+    const [existingOrders] = await db.execute(
+      `SELECT total_amount_with_interest, monthly_payment, installment_period, created_at
+       FROM orders 
+       WHERE user_id = ? AND status IN ('pending', 'approved') AND total_amount_with_interest IS NOT NULL`,
+      [userId]
+    );
+    
+    let currentUsedCredit = 0;
+    for (const order of existingOrders) {
+      const totalAmount = parseFloat(order.total_amount_with_interest) || 0;
+      const createdAt = new Date(order.created_at);
+      const now = new Date();
+      const monthsDiff = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24 * 30));
+      
+      if (monthsDiff > 0 && order.monthly_payment) {
+        const monthlyPayment = parseFloat(order.monthly_payment) || 0;
+        const paidAmount = monthlyPayment * Math.min(monthsDiff, order.installment_period || 1);
+        currentUsedCredit += Math.max(0, totalAmount - paidAmount);
+      } else {
+        currentUsedCredit += totalAmount;
+      }
+    }
+    
+    // Kiểm tra nếu used credit + order mới > 50tr
+    if (currentUsedCredit + totalAmountWithInterest > CREDIT_LIMIT) {
+      return res.status(400).json({ 
+        error: `Vượt quá hạn mức tín dụng. Đã dùng: ${currentUsedCredit.toLocaleString('vi-VN')} VND, Hạn mức: ${CREDIT_LIMIT.toLocaleString('vi-VN')} VND` 
+      });
+    }
 
     const orderId = generateUUID();
     const createdAt = new Date().toISOString().split('T')[0];
@@ -190,13 +221,13 @@ router.post('/orders', requireAuth, async (req, res) => {
         orderStatus = 'rejected';
       }
 
-      // Tạo order với BNPL fields (bắt buộc)
+      // Tạo order với BNPL fields (bắt buộc) - không có invoice_number
       await connection.execute(
-        `INSERT INTO orders (id, user_id, buyer, amount, interest_rate, payment_terms, status, invoice_number, created_at,
+        `INSERT INTO orders (id, user_id, buyer, amount, interest_rate, payment_terms, status, created_at,
                             customer_income, installment_period, monthly_payment, total_amount_with_interest, risk_score, risk_level, approved_by_admin)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          orderId, userId, buyer, finalAmount, finalInterestRate, installmentPeriod * 30, orderStatus, invoiceNumber, createdAt,
+          orderId, userId, buyer, finalAmount, finalInterestRate, installmentPeriod * 30, orderStatus, createdAt,
           customerIncome, installmentPeriod, monthlyPayment, totalAmountWithInterest,
           riskAssessment.riskScore, riskAssessment.riskLevel, orderStatus === 'approved' ? 1 : 0
         ]
@@ -245,8 +276,7 @@ router.post('/orders', requireAuth, async (req, res) => {
       // Lấy order với items (sử dụng connection trước khi release)
       const [orders] = await connection.execute(
         `SELECT o.id, o.user_id as userId, o.buyer, o.amount, o.interest_rate as interestRate,
-                o.payment_terms as paymentTerms, o.status, o.invoice_number as invoiceNumber,
-                o.created_at as createdAt,
+                o.payment_terms as paymentTerms, o.status, o.created_at as createdAt,
                 o.customer_income as customerIncome, o.installment_period as installmentPeriod,
                 o.monthly_payment as monthlyPayment, o.total_amount_with_interest as totalAmountWithInterest,
                 o.risk_score as riskScore, o.risk_level as riskLevel, o.approved_by_admin as approvedByAdmin
@@ -324,14 +354,13 @@ router.put('/orders/:id', requireAuth, async (req, res) => {
     }
 
     // Build update query
-    const allowedFields = ['buyer', 'amount', 'interest_rate', 'payment_terms', 'status', 'invoice_number'];
+    const allowedFields = ['buyer', 'amount', 'interest_rate', 'payment_terms', 'status'];
     const updateFields = [];
     const updateValues = [];
 
     for (const [key, value] of Object.entries(updates)) {
       const dbKey = key === 'interestRate' ? 'interest_rate' :
-                    key === 'paymentTerms' ? 'payment_terms' :
-                    key === 'invoiceNumber' ? 'invoice_number' : key;
+                    key === 'paymentTerms' ? 'payment_terms' : key;
       if (allowedFields.includes(dbKey) && value !== undefined) {
         updateFields.push(`${dbKey} = ?`);
         updateValues.push(value);
@@ -351,8 +380,7 @@ router.put('/orders/:id', requireAuth, async (req, res) => {
     // Lấy order đã cập nhật
     const [updatedOrders] = await db.execute(
       `SELECT id, user_id as userId, buyer, amount, interest_rate as interestRate,
-              payment_terms as paymentTerms, status, invoice_number as invoiceNumber,
-              created_at as createdAt
+              payment_terms as paymentTerms, status, created_at as createdAt
        FROM orders WHERE id = ?`,
       [id]
     );
@@ -466,6 +494,59 @@ router.put('/user', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Update user error:', error);
     res.status(500).json({ error: 'Lỗi server khi cập nhật user' });
+  }
+});
+
+/**
+ * GET /api/credit-status
+ * Lấy thông tin credit status (used credit, available credit)
+ * Used credit = tổng totalAmountWithInterest của các orders chưa completed
+ * Available credit = 50,000,000 VND (fix cứng)
+ */
+router.get('/credit-status', requireAuth, async (req, res) => {
+  try {
+    const userId = req.userId;
+    
+    // Tính used credit: tổng totalAmountWithInterest của các orders chưa completed
+    const [orders] = await db.execute(
+      `SELECT total_amount_with_interest, monthly_payment, installment_period, created_at, status
+       FROM orders 
+       WHERE user_id = ? AND status IN ('pending', 'approved') AND total_amount_with_interest IS NOT NULL`,
+      [userId]
+    );
+    
+    let usedCredit = 0;
+    const CREDIT_LIMIT = 50000000; // 50 triệu VND
+    
+    // Tính tổng totalAmountWithInterest của các orders chưa completed
+    for (const order of orders) {
+      const totalAmount = parseFloat(order.total_amount_with_interest) || 0;
+      
+      // Nếu order đã tồn tại hơn 1 tháng, giảm đi monthlyPayment
+      const createdAt = new Date(order.created_at);
+      const now = new Date();
+      const monthsDiff = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24 * 30));
+      
+      if (monthsDiff > 0 && order.monthly_payment) {
+        const monthlyPayment = parseFloat(order.monthly_payment) || 0;
+        const paidAmount = monthlyPayment * Math.min(monthsDiff, order.installment_period || 1);
+        usedCredit += Math.max(0, totalAmount - paidAmount);
+      } else {
+        usedCredit += totalAmount;
+      }
+    }
+    
+    const availableCredit = Math.max(0, CREDIT_LIMIT - usedCredit);
+    
+    res.json({
+      creditLimit: CREDIT_LIMIT,
+      usedCredit: usedCredit,
+      availableCredit: availableCredit,
+      utilizationRate: usedCredit > 0 ? ((usedCredit / CREDIT_LIMIT) * 100).toFixed(1) : '0.0'
+    });
+  } catch (error) {
+    console.error('Get credit status error:', error);
+    res.status(500).json({ error: 'Lỗi server khi lấy thông tin credit' });
   }
 });
 

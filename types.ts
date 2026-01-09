@@ -50,7 +50,6 @@ export interface Order {
   interestRate: number;
   paymentTerms: number;
   status: 'pending' | 'paid' | 'shipping' | 'completed' | 'cancelled' | 'approved' | 'rejected';
-  invoiceNumber: string;
   createdAt: string;
   items?: OrderItem[];
   userId?: string;

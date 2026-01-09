@@ -219,7 +219,6 @@ Lưu trữ thông tin đơn hàng:
 - `interest_rate`: Lãi suất
 - `payment_terms`: Điều khoản thanh toán (số ngày)
 - `status`: Trạng thái (pending/approved/rejected/completed)
-- `invoice_number`: Số hóa đơn
 - `created_at`: Ngày tạo
 
 ### Bảng `risk_metrics`

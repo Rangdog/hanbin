@@ -27,7 +27,6 @@ CREATE TABLE IF NOT EXISTS orders (
   interest_rate DECIMAL(5, 2) NOT NULL DEFAULT 0,
   payment_terms INT NOT NULL DEFAULT 30,
   status ENUM('pending', 'approved', 'rejected', 'completed') NOT NULL DEFAULT 'pending',
-  invoice_number VARCHAR(100),
   created_at DATE NOT NULL,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

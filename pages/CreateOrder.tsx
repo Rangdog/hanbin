@@ -22,7 +22,6 @@ export default function CreateOrder() {
   const [formData, setFormData] = useState({
     buyer: '',
     amount: '',
-    invoiceNumber: '',
     customerIncome: '',
     installmentPeriod: '',
   });
@@ -172,7 +171,7 @@ export default function CreateOrder() {
     try {
       const totalAmount = selectedItems.length > 0 ? calculateTotal() : parseFloat(formData.amount || '0');
       
-      if (!formData.buyer || !formData.invoiceNumber) {
+      if (!formData.buyer) {
         throw new Error('Vui lòng điền đầy đủ thông tin');
       }
 
@@ -199,7 +198,6 @@ export default function CreateOrder() {
         buyer: formData.buyer,
         amount: totalAmount,
         status: 'pending',
-        invoiceNumber: formData.invoiceNumber,
         items: selectedItems.length > 0 ? selectedItems : undefined,
         customerIncome: parseFloat(formData.customerIncome),
         installmentPeriod: parseInt(formData.installmentPeriod),
@@ -207,7 +205,7 @@ export default function CreateOrder() {
 
       setStatus('success');
       setMessage('Đơn hàng đã được tạo thành công!');
-      setFormData({ buyer: '', amount: '', invoiceNumber: '', customerIncome: '', installmentPeriod: '' });
+      setFormData({ buyer: '', amount: '', customerIncome: '', installmentPeriod: '' });
       setSelectedItems([]);
       setRiskAssessment(null);
     } catch (error: any) {
@@ -265,26 +263,6 @@ export default function CreateOrder() {
               />
             </div>
 
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label htmlFor="invoiceNumber" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                Invoice Number
-              </label>
-              <input
-                type="text"
-                id="invoiceNumber"
-                name="invoiceNumber"
-                value={formData.invoiceNumber}
-                onChange={handleChange}
-                required
-                style={{
-                  width: '100%',
-                  padding: '0.5rem',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '0.375rem',
-                  fontSize: '1rem',
-                }}
-              />
-            </div>
 
             {selectedItems.length === 0 && (
               <div style={{ marginBottom: '1.5rem' }}>

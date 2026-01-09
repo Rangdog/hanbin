@@ -404,7 +404,7 @@ export default function AdminDashboard() {
                   <div key={order.id} style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                       <div>
-                        <h3 style={{ fontWeight: '600' }}>{order.invoiceNumber}</h3>
+                        <h3 style={{ fontWeight: '600' }}>Order #{order.id.substring(0, 8)}</h3>
                         <p style={{ color: '#6b7280' }}>Khách hàng: {(order as any).customerName || order.buyer}</p>
                         <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>{(order as any).customerEmail || ''}</p>
                       </div>
@@ -471,8 +471,8 @@ export default function AdminDashboard() {
                     </div>
                     <div style={{ display: 'grid', gap: '1rem' }}>
                       <div>
-                        <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Invoice Number</p>
-                        <p style={{ fontWeight: '600' }}>{selectedOrder.invoiceNumber}</p>
+                        <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Order ID</p>
+                        <p style={{ fontWeight: '600' }}>{selectedOrder.id}</p>
                       </div>
                       <div>
                         <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Khách hàng</p>

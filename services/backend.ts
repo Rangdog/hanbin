@@ -231,6 +231,12 @@ export const backend = {
     });
   },
 
+  async getCreditStatus(): Promise<{ creditLimit: number; usedCredit: number; availableCredit: number; utilizationRate: string }> {
+    return apiRequest('/credit-status', {
+      method: 'GET',
+    });
+  },
+
   async getRiskMetrics(): Promise<RiskMetrics> {
     return apiRequest('/risk-metrics', {
       method: 'GET',
