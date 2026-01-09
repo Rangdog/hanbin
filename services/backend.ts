@@ -289,6 +289,31 @@ export const backend = {
     });
   },
 
+  async getAdminOrders(filters?: { status?: string; startDate?: string; endDate?: string; customerId?: string }): Promise<{ orders: Order[]; totalRevenue: number }> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+    if (filters?.customerId) params.append('customerId', filters.customerId);
+    const query = params.toString();
+    return apiRequest(`/admin/orders${query ? `?${query}` : ''}`, {
+      method: 'GET',
+    });
+  },
+
+  async getAdminOrderById(id: string): Promise<Order> {
+    return apiRequest(`/admin/orders/${id}`, {
+      method: 'GET',
+    });
+  },
+
+  async updateAdminOrder(id: string, updates: Partial<Order>): Promise<Order> {
+    return apiRequest(`/admin/orders/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
+
   async getCustomers(filters?: { search?: string; isLocked?: boolean }): Promise<any[]> {
     const params = new URLSearchParams();
     if (filters?.search) params.append('search', filters.search);

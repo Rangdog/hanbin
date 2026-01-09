@@ -120,6 +120,233 @@ router.get('/dashboard/stats', requireAdmin, async (req, res) => {
 });
 
 /**
+ * GET /api/admin/orders
+ * Lấy danh sách tất cả orders (admin) - có thể filter theo status, ngày, khách hàng
+ */
+router.get('/orders', requireAdmin, async (req, res) => {
+  try {
+    const { status, startDate, endDate, customerId } = req.query;
+    let query = `
+      SELECT o.id, o.user_id as userId, u.company_name as customerName, u.email as customerEmail,
+             o.buyer, o.amount, o.interest_rate as interestRate,
+             o.payment_terms as paymentTerms, o.status, o.invoice_number as invoiceNumber,
+             o.due_date as dueDate, o.created_at as createdAt,
+             o.customer_income as customerIncome, o.installment_period as installmentPeriod,
+             o.monthly_payment as monthlyPayment, o.total_amount_with_interest as totalAmountWithInterest,
+             o.risk_score as riskScore, o.risk_level as riskLevel
+      FROM orders o
+      JOIN users u ON o.user_id = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (status) {
+      query += ' AND o.status = ?';
+      params.push(status);
+    }
+    if (startDate) {
+      query += ' AND o.created_at >= ?';
+      params.push(startDate);
+    }
+    if (endDate) {
+      query += ' AND o.created_at <= ?';
+      params.push(endDate + ' 23:59:59');
+    }
+    if (customerId) {
+      query += ' AND o.user_id = ?';
+      params.push(customerId);
+    }
+
+    query += ' ORDER BY o.created_at DESC';
+
+    const [orders] = await db.execute(query, params);
+
+    // Lấy order_items cho mỗi order
+    const ordersWithItems = await Promise.all(orders.map(async (order) => {
+      const [items] = await db.execute(
+        `SELECT oi.id, oi.product_id as productId, p.name as productName, p.brand as productBrand,
+                p.image_url as productImageUrl, oi.quantity, oi.unit_price as unitPrice, oi.subtotal
+         FROM order_items oi
+         LEFT JOIN products p ON oi.product_id = p.id
+         WHERE oi.order_id = ?`,
+        [order.id]
+      );
+
+      return {
+        ...order,
+        amount: parseFloat(order.amount),
+        interestRate: parseFloat(order.interestRate),
+        paymentTerms: parseInt(order.paymentTerms),
+        customerIncome: order.customerIncome ? parseFloat(order.customerIncome) : undefined,
+        installmentPeriod: order.installmentPeriod ? parseInt(order.installmentPeriod) : undefined,
+        monthlyPayment: order.monthlyPayment ? parseFloat(order.monthlyPayment) : undefined,
+        totalAmountWithInterest: order.totalAmountWithInterest ? parseFloat(order.totalAmountWithInterest) : undefined,
+        riskScore: order.riskScore ? parseInt(order.riskScore) : undefined,
+        riskLevel: order.riskLevel || undefined,
+        items: items.map(item => ({
+          id: item.id,
+          productId: item.productId,
+          quantity: parseInt(item.quantity),
+          unitPrice: parseFloat(item.unitPrice),
+          subtotal: parseFloat(item.subtotal),
+          product: item.productName ? {
+            name: item.productName,
+            brand: item.productBrand,
+            imageUrl: item.productImageUrl,
+          } : undefined,
+        })),
+      };
+    }));
+
+    // Tính tổng doanh thu
+    const [revenue] = await db.execute(
+      `SELECT COALESCE(SUM(amount), 0) as total
+       FROM orders
+       WHERE status IN ('completed', 'paid', 'shipping')`
+    );
+    const totalRevenue = parseFloat(revenue[0].total);
+
+    res.json({
+      orders: ordersWithItems,
+      totalRevenue,
+    });
+  } catch (error) {
+    console.error('Get admin orders error:', error);
+    res.status(500).json({ error: 'Lỗi server khi lấy danh sách orders' });
+  }
+});
+
+/**
+ * GET /api/admin/orders/:id
+ * Lấy chi tiết order (admin)
+ */
+router.get('/orders/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [orders] = await db.execute(
+      `SELECT o.id, o.user_id as userId, u.company_name as customerName, u.email as customerEmail,
+              o.buyer, o.amount, o.interest_rate as interestRate,
+              o.payment_terms as paymentTerms, o.status, o.invoice_number as invoiceNumber,
+              o.due_date as dueDate, o.created_at as createdAt,
+              o.customer_income as customerIncome, o.installment_period as installmentPeriod,
+              o.monthly_payment as monthlyPayment, o.total_amount_with_interest as totalAmountWithInterest,
+              o.risk_score as riskScore, o.risk_level as riskLevel
+       FROM orders o
+       JOIN users u ON o.user_id = u.id
+       WHERE o.id = ?`,
+      [id]
+    );
+
+    if (orders.length === 0) {
+      return res.status(404).json({ error: 'Order không tồn tại' });
+    }
+
+    const order = orders[0];
+
+    // Lấy order_items
+    const [items] = await db.execute(
+      `SELECT oi.id, oi.product_id as productId, p.name as productName, p.brand as productBrand,
+              p.image_url as productImageUrl, oi.quantity, oi.unit_price as unitPrice, oi.subtotal
+       FROM order_items oi
+       LEFT JOIN products p ON oi.product_id = p.id
+       WHERE oi.order_id = ?`,
+      [id]
+    );
+
+    res.json({
+      ...order,
+      amount: parseFloat(order.amount),
+      interestRate: parseFloat(order.interestRate),
+      paymentTerms: parseInt(order.paymentTerms),
+      customerIncome: order.customerIncome ? parseFloat(order.customerIncome) : undefined,
+      installmentPeriod: order.installmentPeriod ? parseInt(order.installmentPeriod) : undefined,
+      monthlyPayment: order.monthlyPayment ? parseFloat(order.monthlyPayment) : undefined,
+      totalAmountWithInterest: order.totalAmountWithInterest ? parseFloat(order.totalAmountWithInterest) : undefined,
+      riskScore: order.riskScore ? parseInt(order.riskScore) : undefined,
+      riskLevel: order.riskLevel || undefined,
+      items: items.map(item => ({
+        id: item.id,
+        productId: item.productId,
+        quantity: parseInt(item.quantity),
+        unitPrice: parseFloat(item.unitPrice),
+        subtotal: parseFloat(item.subtotal),
+        product: item.productName ? {
+          name: item.productName,
+          brand: item.productBrand,
+          imageUrl: item.productImageUrl,
+        } : undefined,
+      })),
+    });
+  } catch (error) {
+    console.error('Get admin order detail error:', error);
+    res.status(500).json({ error: 'Lỗi server khi lấy chi tiết order' });
+  }
+});
+
+/**
+ * PUT /api/admin/orders/:id
+ * Cập nhật order (admin) - có thể thay đổi status
+ */
+router.put('/orders/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const [orders] = await db.execute('SELECT id FROM orders WHERE id = ?', [id]);
+    if (orders.length === 0) {
+      return res.status(404).json({ error: 'Order không tồn tại' });
+    }
+
+    const allowedFields = ['buyer', 'amount', 'interest_rate', 'payment_terms', 'status', 'invoice_number', 'due_date'];
+    const updateFields = [];
+    const updateValues = [];
+
+    for (const [key, value] of Object.entries(updates)) {
+      const dbKey = key === 'interestRate' ? 'interest_rate' :
+                    key === 'paymentTerms' ? 'payment_terms' :
+                    key === 'invoiceNumber' ? 'invoice_number' :
+                    key === 'dueDate' ? 'due_date' : key;
+      if (allowedFields.includes(dbKey) && value !== undefined) {
+        updateFields.push(`${dbKey} = ?`);
+        updateValues.push(value);
+      }
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: 'Không có trường nào để cập nhật' });
+    }
+
+    updateValues.push(id);
+    await db.execute(
+      `UPDATE orders SET ${updateFields.join(', ')} WHERE id = ?`,
+      updateValues
+    );
+
+    // Lấy lại order đã cập nhật
+    const [updatedOrders] = await db.execute(
+      `SELECT o.id, o.user_id as userId, u.company_name as customerName, o.buyer, o.amount, o.interest_rate as interestRate,
+              o.payment_terms as paymentTerms, o.status, o.invoice_number as invoiceNumber,
+              o.due_date as dueDate, o.created_at as createdAt
+       FROM orders o
+       JOIN users u ON o.user_id = u.id
+       WHERE o.id = ?`,
+      [id]
+    );
+
+    const order = updatedOrders[0];
+    res.json({
+      ...order,
+      amount: parseFloat(order.amount),
+      interestRate: parseFloat(order.interestRate),
+      paymentTerms: parseInt(order.paymentTerms),
+    });
+  } catch (error) {
+    console.error('Update admin order error:', error);
+    res.status(500).json({ error: 'Lỗi server khi cập nhật order' });
+  }
+});
+
+/**
  * GET /api/admin/customers
  * Lấy danh sách khách hàng
  */
