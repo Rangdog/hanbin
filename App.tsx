@@ -3,11 +3,12 @@ import Sidebar from './components/Sidebar';
 import OrderManagement from './pages/OrderManagement';
 import CreateOrder from './pages/CreateOrder';
 import UserProfile from './pages/UserProfile';
+import AdminDashboard from './pages/AdminDashboard';
 import Auth from './pages/Auth';
 import { backend } from './services/backend';
 import { User } from './types';
 
-type Page = 'orders' | 'create' | 'profile';
+type Page = 'orders' | 'create' | 'profile' | 'admin';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('orders');
@@ -41,6 +42,8 @@ export default function App() {
         return <CreateOrder />;
       case 'profile':
         return <UserProfile user={user} />;
+      case 'admin':
+        return user.role === 'admin' ? <AdminDashboard /> : <OrderManagement />;
       default:
         return <OrderManagement />;
     }
@@ -60,7 +63,7 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} onLogout={handleLogout} />
+      <Sidebar currentPage={currentPage} onNavigate={setCurrentPage} onLogout={handleLogout} userRole={user.role} />
       <main style={{ flex: 1, padding: '2rem', backgroundColor: '#f5f5f5' }}>
         {renderPage()}
       </main>

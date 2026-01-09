@@ -130,19 +130,65 @@ export default function OrderManagement() {
                   <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Interest Rate</p>
                   <p style={{ fontWeight: '600' }}>{order.interestRate}%</p>
                 </div>
-                <div>
-                  <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Payment Terms</p>
-                  <p style={{ fontWeight: '600' }}>{order.paymentTerms} days</p>
-                </div>
-                <div>
-                  <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Due Date</p>
-                  <p style={{ fontWeight: '600' }}>{order.dueDate}</p>
-                </div>
+                {order.installmentPeriod ? (
+                  <>
+                    <div>
+                      <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Kỳ hạn trả góp</p>
+                      <p style={{ fontWeight: '600', color: '#3b82f6' }}>{order.installmentPeriod} tháng</p>
+                    </div>
+                    <div>
+                      <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Số tiền trả mỗi tháng</p>
+                      <p style={{ fontWeight: '600', color: '#10b981' }}>${order.monthlyPayment?.toLocaleString() || 'N/A'}</p>
+                    </div>
+                    {order.totalAmountWithInterest && (
+                      <div>
+                        <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Tổng tiền phải trả</p>
+                        <p style={{ fontWeight: '600' }}>${order.totalAmountWithInterest.toLocaleString()}</p>
+                      </div>
+                    )}
+                    {order.riskLevel && (
+                      <div>
+                        <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Mức độ rủi ro</p>
+                        <p style={{ 
+                          fontWeight: '600',
+                          color: order.riskLevel === 'low' ? '#10b981' : 
+                                 order.riskLevel === 'medium' ? '#f59e0b' : 
+                                 order.riskLevel === 'high' ? '#ef4444' : '#dc2626'
+                        }}>
+                          {order.riskLevel.toUpperCase()} {order.riskScore ? `(${order.riskScore}/100)` : ''}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Payment Terms</p>
+                      <p style={{ fontWeight: '600' }}>{order.paymentTerms} days</p>
+                    </div>
+                    <div>
+                      <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Due Date</p>
+                      <p style={{ fontWeight: '600' }}>{order.dueDate}</p>
+                    </div>
+                  </>
+                )}
                 <div>
                   <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Created</p>
                   <p style={{ fontWeight: '600' }}>{order.createdAt}</p>
                 </div>
               </div>
+              
+              {order.items && order.items.length > 0 && (
+                <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e5e7eb' }}>
+                  <p style={{ fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.5rem' }}>Sản phẩm:</p>
+                  {order.items.map(item => (
+                    <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                      <span>{item.product?.name || `Product ${item.productId}`} x {item.quantity}</span>
+                      <span>${item.subtotal.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 {order.status === 'pending' && (

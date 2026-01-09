@@ -3,13 +3,15 @@ interface SidebarProps {
   currentPage: string;
   onNavigate: (page: any) => void;
   onLogout?: () => void;
+  userRole?: 'admin' | 'user';
 }
 
-export default function Sidebar({ currentPage, onNavigate, onLogout }: SidebarProps) {
+export default function Sidebar({ currentPage, onNavigate, onLogout, userRole }: SidebarProps) {
   const menuItems = [
     { id: 'orders', label: 'Order Management', icon: '📋' },
     { id: 'create', label: 'Create Order', icon: '➕' },
     { id: 'profile', label: 'User Profile', icon: '👤' },
+    ...(userRole === 'admin' ? [{ id: 'admin', label: 'Admin Dashboard', icon: '⚙️' }] : []),
   ];
 
   return (

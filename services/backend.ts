@@ -1,4 +1,4 @@
-import { User, Order, RiskMetrics } from '../types';
+import { User, Order, RiskMetrics, Product, DashboardStats } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -211,7 +211,7 @@ export const backend = {
     });
   },
 
-  async createOrder(order: Omit<Order, 'id' | 'createdAt'>): Promise<Order> {
+  async createOrder(order: Omit<Order, 'id' | 'createdAt'> & { customerIncome?: number; installmentPeriod?: number }): Promise<Order> {
     return apiRequest('/orders', {
       method: 'POST',
       body: JSON.stringify(order),
@@ -234,6 +234,81 @@ export const backend = {
   async getRiskMetrics(): Promise<RiskMetrics> {
     return apiRequest('/risk-metrics', {
       method: 'GET',
+    });
+  },
+
+  async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+    await apiRequest('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ oldPassword, newPassword }),
+    });
+  },
+
+  // Products
+  async getProducts(filters?: { brand?: string; status?: string; search?: string }): Promise<Product[]> {
+    const params = new URLSearchParams();
+    if (filters?.brand) params.append('brand', filters.brand);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.search) params.append('search', filters.search);
+    const query = params.toString();
+    return apiRequest(`/products${query ? `?${query}` : ''}`, {
+      method: 'GET',
+    });
+  },
+
+  async getProduct(id: string): Promise<Product> {
+    return apiRequest(`/products/${id}`, {
+      method: 'GET',
+    });
+  },
+
+  async createProduct(product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product> {
+    return apiRequest('/products', {
+      method: 'POST',
+      body: JSON.stringify(product),
+    });
+  },
+
+  async updateProduct(id: string, updates: Partial<Product>): Promise<Product> {
+    return apiRequest(`/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  async deleteProduct(id: string): Promise<void> {
+    await apiRequest(`/products/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Admin
+  async getDashboardStats(): Promise<DashboardStats> {
+    return apiRequest('/admin/dashboard/stats', {
+      method: 'GET',
+    });
+  },
+
+  async getCustomers(filters?: { search?: string; isLocked?: boolean }): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.isLocked !== undefined) params.append('isLocked', filters.isLocked.toString());
+    const query = params.toString();
+    return apiRequest(`/admin/customers${query ? `?${query}` : ''}`, {
+      method: 'GET',
+    });
+  },
+
+  async getCustomerOrders(customerId: string): Promise<Order[]> {
+    return apiRequest(`/admin/customers/${customerId}/orders`, {
+      method: 'GET',
+    });
+  },
+
+  async lockCustomer(customerId: string, isLocked: boolean): Promise<void> {
+    await apiRequest(`/admin/customers/${customerId}/lock`, {
+      method: 'PUT',
+      body: JSON.stringify({ isLocked }),
     });
   },
 };

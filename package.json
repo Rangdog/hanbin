@@ -10,6 +10,10 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "db:init": "node database/init.js",
+    "db:migrate": "node database/run-migrations.js",
+    "db:seed": "node database/run-seeders.js",
+    "db:reset": "npm run db:init && npm run db:migrate && npm run db:seed",
+    "db:migrate:bnpl": "node database/run-migrations.js",
     "test": "node test-project.js"
   },
   "dependencies": {

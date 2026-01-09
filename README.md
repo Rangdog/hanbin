@@ -4,13 +4,24 @@ Hệ thống quản lý tài chính chuỗi cung ứng hiện đại được x�
 
 ## ✨ Tính Năng
 
+### Người Dùng
 - 🔐 **Đăng nhập / Đăng ký** - Xác thực người dùng với MySQL
 - ✉️ **Xác nhận email** - Bắt buộc xác nhận email sau khi đăng ký để kích hoạt tài khoản
 - 🔑 **Quên mật khẩu** - Khôi phục mật khẩu qua email
+- 🔒 **Đổi mật khẩu** - Đổi mật khẩu với validation mật khẩu cũ
 - 📋 **Quản lý đơn hàng** - Tạo, xem, cập nhật và xóa đơn hàng
+- 📱 **Chọn sản phẩm điện thoại** - Tạo order với sản phẩm điện thoại (iPhone, Samsung, Xiaomi, etc.)
+- 💳 **Buy Now Pay Later (BNPL)** - Trả góp với đánh giá rủi ro tự động, chọn kỳ hạn 3-24 tháng, tính số tiền trả mỗi tháng
 - 👤 **Quản lý hồ sơ** - Cập nhật thông tin công ty và người dùng
 - 📊 **Đánh giá rủi ro** - Theo dõi các chỉ số rủi ro tín dụng
 - 💳 **Theo dõi hạn mức tín dụng** - Quản lý credit limit và spending capacity
+
+### Admin
+- 📊 **Dashboard Tổng Quan** - Thống kê tổng số khách hàng, orders, doanh thu theo ngày/tháng
+- 👥 **Quản lý Khách Hàng** - Xem danh sách, lịch sử order, khóa/mở khóa tài khoản
+- 📦 **Quản lý Sản Phẩm** - CRUD sản phẩm điện thoại, upload hình ảnh, quản lý tồn kho
+- 📋 **Quản lý Order** - Xem tất cả orders, lọc theo trạng thái, ngày, khách hàng
+- ⭐ **Khách Hàng VIP** - Tự động xác định và hiển thị top khách hàng theo tổng tiền đã chi
 
 ## 📋 Yêu Cầu Hệ Thống
 
@@ -113,16 +124,45 @@ VITE_API_URL=http://localhost:3001/api
 
 ### Bước 4: Khởi Tạo Database
 
-Chạy script để tạo database và seed dữ liệu mẫu:
+#### Option 1: Khởi tạo đầy đủ (khuyến nghị)
+```bash
+npm run db:init
+npm run db:migrate
+npm run db:seed
+```
 
+Hoặc chạy tất cả cùng lúc:
+```bash
+npm run db:reset
+```
+
+#### Option 2: Chạy từng bước
+
+1. **Tạo database và schema cơ bản:**
 ```bash
 npm run db:init
 ```
 
-Script này sẽ:
+2. **Chạy migrations (thêm products, order_items, admin features, BNPL):**
+```bash
+npm run db:migrate
+```
+
+3. **Chạy seeders (thêm products, admin user):**
+```bash
+npm run db:seed
+```
+
+**Scripts sẽ:**
 - ✅ Tạo database `supply_chain_finance`
-- ✅ Tạo các bảng: `users`, `orders`, `risk_metrics`, `password_reset_tokens`
-- ✅ Thêm dữ liệu mẫu (1 user demo với email: `contact@techinnovations.com`, password: `password123`)
+- ✅ Tạo các bảng: `users`, `orders`, `risk_metrics`, `password_reset_tokens`, `email_verification_tokens`, `products`, `order_items`, `audit_logs`
+- ✅ Thêm role và is_locked cho users
+- ✅ Thêm BNPL fields cho orders (customer_income, installment_period, monthly_payment, etc.)
+- ✅ Insert dữ liệu mẫu:
+  - 8 users (khách hàng) + 1 admin user
+  - 22 sản phẩm điện thoại (Apple, Samsung, Xiaomi, Google, OnePlus)
+  - 44 orders mẫu
+  - 8 risk metrics
 
 **Nếu gặp lỗi:**
 - Kiểm tra MySQL đang chạy
@@ -217,7 +257,10 @@ Cập nhật `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` trong `.env`
 - `npm run dev:all` - Chạy cả frontend và backend cùng lúc
 - `npm run build` - Build production cho frontend
 - `npm run preview` - Preview production build
-- `npm run db:init` - Khởi tạo database và seed dữ liệu
+- `npm run db:init` - Khởi tạo database và seed dữ liệu cơ bản
+- `npm run db:migrate` - Chạy migrations (thêm products, BNPL, admin features)
+- `npm run db:seed` - Chạy seeders (thêm products, admin user)
+- `npm run db:reset` - Reset toàn bộ database (init + migrate + seed)
 - `npm run test` - Chạy test để kiểm tra database và API (cần MySQL và backend server đang chạy)
 
 ## 📁 Cấu Trúc Project
@@ -262,8 +305,9 @@ hanbin/
 - `PUT /api/user` - Cập nhật thông tin user
 
 ### Orders
-- `GET /api/orders` - Lấy danh sách orders
-- `POST /api/orders` - Tạo order mới
+- `GET /api/orders` - Lấy danh sách orders (user: chỉ orders của mình, admin: tất cả)
+- `POST /api/orders` - Tạo order mới (có thể kèm items và BNPL)
+- `POST /api/orders/calculate-risk` - Tính toán risk assessment cho BNPL
 - `PUT /api/orders/:id` - Cập nhật order
 - `DELETE /api/orders/:id` - Xóa order
 
@@ -348,6 +392,83 @@ Test sẽ kiểm tra:
 - ✅ API endpoints (register, login, verify-email, forgot-password, etc.)
 
 Xem chi tiết trong [TEST_REPORT.md](./TEST_REPORT.md)
+
+## 📁 Cấu Trúc Thư Mục
+
+```
+hanbin/
+├── server/                    # Backend API
+│   ├── index.js              # Entry point
+│   ├── db.js                 # MySQL connection pool
+│   ├── email.js              # Email service
+│   └── routes/
+│       ├── auth.js           # Authentication routes
+│       ├── api.js            # API routes (orders, user, risk-metrics)
+│       ├── products.js       # Products CRUD (admin only)
+│       └── admin.js          # Admin routes (dashboard, customers)
+├── pages/                     # Frontend pages
+│   ├── Auth.tsx              # Login/Register/Verify/Forgot/Reset
+│   ├── OrderManagement.tsx   # Quản lý orders
+│   ├── CreateOrder.tsx       # Tạo order (có thể chọn sản phẩm)
+│   ├── UserProfile.tsx      # Profile + Đổi mật khẩu
+│   └── AdminDashboard.tsx    # Admin dashboard
+├── components/
+│   ├── Sidebar.tsx           # Navigation sidebar
+│   ├── RiskCharts.tsx        # Risk metrics charts
+│   └── SpendingCapacity.tsx  # Spending capacity display
+├── services/
+│   └── backend.ts            # API client
+├── database/
+│   ├── schema.sql            # Database schema cơ bản
+│   ├── seed.sql              # Seed data cơ bản
+│   ├── migrations/           # Database migrations
+│   │   ├── 001_add_products_and_order_items.sql
+│   │   ├── 002_add_user_role_and_locked.sql
+│   │   ├── 003_update_order_status.sql
+│   │   ├── 004_add_audit_log.sql
+│   │   └── 005_add_bnpl_fields.sql
+│   ├── seeders/              # Database seeders
+│   │   ├── 001_seed_products.sql
+│   │   └── 002_seed_admin_user.sql
+│   ├── init.js               # Init script
+│   ├── run-migrations.js     # Migration runner
+│   └── run-seeders.js        # Seeder runner
+├── server/
+│   └── utils/
+│       └── riskCalculator.js # Risk calculator cho BNPL
+└── types.ts                   # TypeScript types
+```
+
+## 🔑 API Endpoints
+
+### Authentication
+- `POST /api/auth/register` - Đăng ký
+- `POST /api/auth/login` - Đăng nhập
+- `POST /api/auth/verify-email` - Xác nhận email
+- `POST /api/auth/forgot-password` - Yêu cầu reset password
+- `POST /api/auth/reset-password` - Reset password với token
+- `POST /api/auth/change-password` - Đổi mật khẩu (cần đăng nhập)
+- `GET /api/auth/me` - Lấy thông tin user hiện tại
+
+### Products
+- `GET /api/products` - Lấy danh sách sản phẩm (có thể filter)
+- `GET /api/products/:id` - Lấy chi tiết sản phẩm
+- `POST /api/products` - Tạo sản phẩm (admin only)
+- `PUT /api/products/:id` - Cập nhật sản phẩm (admin only)
+- `DELETE /api/products/:id` - Xóa sản phẩm (admin only)
+
+### Orders
+- `GET /api/orders` - Lấy danh sách orders (user: chỉ orders của mình, admin: tất cả)
+- `POST /api/orders` - Tạo order mới (có thể kèm items và BNPL)
+- `POST /api/orders/calculate-risk` - Tính toán risk assessment cho BNPL
+- `PUT /api/orders/:id` - Cập nhật order
+- `DELETE /api/orders/:id` - Xóa order
+
+### Admin
+- `GET /api/admin/dashboard/stats` - Thống kê tổng quan
+- `GET /api/admin/customers` - Danh sách khách hàng
+- `GET /api/admin/customers/:id/orders` - Lịch sử order của khách hàng
+- `PUT /api/admin/customers/:id/lock` - Khóa/mở khóa khách hàng
 
 ## 📚 Tài Liệu Thêm
 

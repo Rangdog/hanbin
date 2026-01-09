@@ -41,6 +41,8 @@ async function initDatabase() {
     console.log('\n✓ Database initialization completed!');
     console.log('Database name: supply_chain_finance');
     console.log('Tables created: users, orders, risk_metrics, password_reset_tokens, email_verification_tokens');
+    console.log('\n⚠️  Lưu ý: Chạy migrations để thêm các tính năng mới:');
+    console.log('   npm run db:migrate');
     console.log('\n📊 Seed Data Summary:');
     
     // Show summary

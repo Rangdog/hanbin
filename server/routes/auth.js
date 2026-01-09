@@ -153,6 +153,11 @@ router.post('/login', async (req, res) => {
     // Tạo session token
     const sessionToken = generateToken();
 
+    // Kiểm tra user có bị khóa không
+    if (user.is_locked) {
+      return res.status(403).json({ error: 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ admin.' });
+    }
+
     res.json({
       success: true,
       user: {
@@ -163,6 +168,8 @@ router.post('/login', async (req, res) => {
         creditLimit: parseFloat(user.credit_limit),
         availableCredit: parseFloat(user.available_credit),
         spendingCapacity: parseFloat(user.spending_capacity),
+        role: user.role || 'user',
+        isLocked: user.is_locked || false,
       },
       token: sessionToken,
     });
@@ -419,6 +426,55 @@ router.get('/me', async (req, res) => {
   } catch (error) {
     console.error('Get me error:', error);
     res.status(500).json({ error: 'Lỗi server' });
+  }
+});
+
+/**
+ * POST /api/auth/change-password
+ * Đổi mật khẩu
+ */
+router.post('/change-password', async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ error: 'Chưa đăng nhập' });
+    }
+
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ error: 'Vui lòng nhập mật khẩu cũ và mật khẩu mới' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
+    }
+
+    // Lấy user
+    const [users] = await db.execute('SELECT password_hash FROM users WHERE id = ?', [userId]);
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'User không tồn tại' });
+    }
+
+    // Kiểm tra mật khẩu cũ
+    const isValidPassword = await bcrypt.compare(oldPassword, users[0].password_hash);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Mật khẩu cũ không đúng' });
+    }
+
+    // Hash mật khẩu mới
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+    // Cập nhật mật khẩu
+    await db.execute('UPDATE users SET password_hash = ? WHERE id = ?', [newPasswordHash, userId]);
+
+    // TODO: Logout toàn bộ session (trong production nên invalidate tất cả tokens)
+    // Hiện tại chỉ trả về success
+
+    res.json({ success: true, message: 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ error: 'Lỗi server khi đổi mật khẩu' });
   }
 });
 

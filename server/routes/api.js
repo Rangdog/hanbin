@@ -1,6 +1,7 @@
 import express from 'express';
 import db from '../db.js';
 import crypto from 'crypto';
+import { calculateRiskScore, calculateInterestRate, calculateMonthlyPayment, canApproveOrder } from '../utils/riskCalculator.js';
 
 const router = express.Router();
 
@@ -16,6 +17,30 @@ function getUserId(req) {
 }
 
 /**
+ * POST /api/orders/calculate-risk
+ * Tính toán risk assessment cho BNPL
+ */
+router.post('/orders/calculate-risk', async (req, res) => {
+  try {
+    const { customerIncome, orderAmount, installmentPeriod } = req.body;
+
+    if (!customerIncome || !orderAmount || !installmentPeriod) {
+      return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin' });
+    }
+
+    if (installmentPeriod < 3) {
+      return res.status(400).json({ error: 'Kỳ hạn phải từ 3 tháng trở lên' });
+    }
+
+    const riskAssessment = calculateRiskScore(customerIncome, orderAmount, installmentPeriod);
+    res.json(riskAssessment);
+  } catch (error) {
+    console.error('Calculate risk error:', error);
+    res.status(500).json({ error: 'Lỗi server khi tính toán rủi ro' });
+  }
+});
+
+/**
  * GET /api/orders
  * Lấy danh sách orders của user
  */
@@ -29,7 +54,10 @@ router.get('/orders', async (req, res) => {
     const [orders] = await db.execute(
       `SELECT id, user_id as userId, buyer, amount, interest_rate as interestRate,
               payment_terms as paymentTerms, status, invoice_number as invoiceNumber,
-              due_date as dueDate, created_at as createdAt
+              due_date as dueDate, created_at as createdAt,
+              customer_income as customerIncome, installment_period as installmentPeriod,
+              monthly_payment as monthlyPayment, total_amount_with_interest as totalAmountWithInterest,
+              risk_score as riskScore, risk_level as riskLevel, approved_by_admin as approvedByAdmin
        FROM orders WHERE user_id = ? ORDER BY created_at DESC`,
       [userId]
     );
@@ -39,6 +67,13 @@ router.get('/orders', async (req, res) => {
       amount: parseFloat(order.amount),
       interestRate: parseFloat(order.interestRate),
       paymentTerms: parseInt(order.paymentTerms),
+      customerIncome: order.customerIncome ? parseFloat(order.customerIncome) : undefined,
+      installmentPeriod: order.installmentPeriod ? parseInt(order.installmentPeriod) : undefined,
+      monthlyPayment: order.monthlyPayment ? parseFloat(order.monthlyPayment) : undefined,
+      totalAmountWithInterest: order.totalAmountWithInterest ? parseFloat(order.totalAmountWithInterest) : undefined,
+      riskScore: order.riskScore ? parseInt(order.riskScore) : undefined,
+      riskLevel: order.riskLevel || undefined,
+      approvedByAdmin: order.approvedByAdmin === 1,
     })));
   } catch (error) {
     console.error('Get orders error:', error);
@@ -57,36 +92,197 @@ router.post('/orders', async (req, res) => {
       return res.status(401).json({ error: 'Chưa đăng nhập' });
     }
 
-    const { buyer, amount, interestRate, paymentTerms, invoiceNumber, dueDate, status } = req.body;
+    // Kiểm tra user có bị khóa không
+    const [userCheck] = await db.execute('SELECT is_locked FROM users WHERE id = ?', [userId]);
+    if (userCheck.length === 0) {
+      return res.status(404).json({ error: 'User không tồn tại' });
+    }
+    if (userCheck[0].is_locked) {
+      return res.status(403).json({ error: 'Tài khoản của bạn đã bị khóa' });
+    }
 
-    if (!buyer || !amount || !invoiceNumber || !dueDate) {
+    const { buyer, amount, interestRate, paymentTerms, invoiceNumber, dueDate, status, items, customerIncome, installmentPeriod } = req.body;
+
+    // Validation: Nếu có items thì tính amount từ items, nếu không thì dùng amount trực tiếp
+    let finalAmount = amount;
+    if (items && Array.isArray(items) && items.length > 0) {
+      // Tính tổng từ items
+      finalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    }
+
+    if (!buyer || !finalAmount || !invoiceNumber || !dueDate) {
       return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin' });
+    }
+
+    // BNPL Validation: Nếu có installmentPeriod thì phải có customerIncome
+    if (installmentPeriod && installmentPeriod >= 3) {
+      if (!customerIncome || customerIncome <= 0) {
+        return res.status(400).json({ error: 'Vui lòng nhập thu nhập hàng tháng để sử dụng tính năng trả góp' });
+      }
+      if (installmentPeriod < 3) {
+        return res.status(400).json({ error: 'Kỳ hạn trả góp phải từ 3 tháng trở lên' });
+      }
+    }
+
+    // Tính toán risk assessment và payment nếu có BNPL
+    let riskAssessment = null;
+    let finalInterestRate = interestRate || 3.5;
+    let monthlyPayment = null;
+    let totalAmountWithInterest = finalAmount;
+    let finalInstallmentPeriod = installmentPeriod || null;
+
+    if (installmentPeriod && installmentPeriod >= 3 && customerIncome) {
+      // Tính risk assessment
+      riskAssessment = calculateRiskScore(customerIncome, finalAmount, installmentPeriod);
+      
+      // Tính lãi suất dựa trên risk level
+      finalInterestRate = calculateInterestRate(riskAssessment.riskLevel, installmentPeriod);
+      
+      // Tính số tiền trả mỗi tháng và tổng tiền
+      const principal = finalAmount;
+      monthlyPayment = calculateMonthlyPayment(principal, finalInterestRate, installmentPeriod);
+      totalAmountWithInterest = monthlyPayment * installmentPeriod;
     }
 
     const orderId = generateUUID();
     const createdAt = new Date().toISOString().split('T')[0];
 
-    await db.execute(
-      `INSERT INTO orders (id, user_id, buyer, amount, interest_rate, payment_terms, status, invoice_number, due_date, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [orderId, userId, buyer, amount, interestRate || 3.5, paymentTerms || 30, status || 'pending', invoiceNumber, dueDate, createdAt]
-    );
+    // Bắt đầu transaction
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
 
-    res.status(201).json({
-      id: orderId,
-      userId,
-      buyer,
-      amount: parseFloat(amount),
-      interestRate: parseFloat(interestRate || 3.5),
-      paymentTerms: parseInt(paymentTerms || 30),
-      status: status || 'pending',
-      invoiceNumber,
-      dueDate,
-      createdAt,
-    });
+    try {
+      // Xác định status dựa trên risk assessment
+      let orderStatus = status || 'pending';
+      if (riskAssessment && canApproveOrder(riskAssessment.riskScore, riskAssessment.riskLevel)) {
+        // Tự động approve nếu risk thấp/trung bình
+        orderStatus = 'approved';
+      } else if (riskAssessment && riskAssessment.riskLevel === 'very_high') {
+        // Từ chối nếu risk rất cao
+        orderStatus = 'rejected';
+      }
+
+      // Tính due_date dựa trên installment_period nếu có
+      let finalDueDate = dueDate;
+      if (finalInstallmentPeriod) {
+        const dueDateObj = new Date();
+        dueDateObj.setMonth(dueDateObj.getMonth() + finalInstallmentPeriod);
+        finalDueDate = dueDateObj.toISOString().split('T')[0];
+      }
+
+      // Tạo order với BNPL fields
+      await connection.execute(
+        `INSERT INTO orders (id, user_id, buyer, amount, interest_rate, payment_terms, status, invoice_number, due_date, created_at,
+                            customer_income, installment_period, monthly_payment, total_amount_with_interest, risk_score, risk_level, approved_by_admin)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          orderId, userId, buyer, finalAmount, finalInterestRate, paymentTerms || 30, orderStatus, invoiceNumber, finalDueDate, createdAt,
+          customerIncome || null, finalInstallmentPeriod || null, monthlyPayment || null, totalAmountWithInterest || null,
+          riskAssessment?.riskScore || null, riskAssessment?.riskLevel || null, orderStatus === 'approved' ? 1 : 0
+        ]
+      );
+
+      // Tạo order_items nếu có
+      if (items && Array.isArray(items) && items.length > 0) {
+        for (const item of items) {
+          if (!item.productId || !item.quantity || !item.unitPrice) {
+            throw new Error('Thiếu thông tin sản phẩm trong order items');
+          }
+
+          // Kiểm tra sản phẩm tồn tại và còn hàng
+          const [products] = await connection.execute(
+            'SELECT id, stock_quantity, status FROM products WHERE id = ?',
+            [item.productId]
+          );
+          if (products.length === 0) {
+            throw new Error(`Sản phẩm ${item.productId} không tồn tại`);
+          }
+          if (products[0].status !== 'active') {
+            throw new Error(`Sản phẩm ${item.productId} không còn bán`);
+          }
+          if (products[0].stock_quantity < item.quantity) {
+            throw new Error(`Sản phẩm ${item.productId} không đủ hàng (còn ${products[0].stock_quantity})`);
+          }
+
+          const itemId = generateUUID();
+          const subtotal = item.quantity * item.unitPrice;
+          await connection.execute(
+            `INSERT INTO order_items (id, order_id, product_id, quantity, unit_price, subtotal)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [itemId, orderId, item.productId, item.quantity, item.unitPrice, subtotal]
+          );
+
+          // Cập nhật stock
+          await connection.execute(
+            'UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?',
+            [item.quantity, item.productId]
+          );
+        }
+      }
+
+      await connection.commit();
+
+      // Lấy order với items (sử dụng connection trước khi release)
+      const [orders] = await connection.execute(
+        `SELECT o.id, o.user_id as userId, o.buyer, o.amount, o.interest_rate as interestRate,
+                o.payment_terms as paymentTerms, o.status, o.invoice_number as invoiceNumber,
+                o.due_date as dueDate, o.created_at as createdAt,
+                o.customer_income as customerIncome, o.installment_period as installmentPeriod,
+                o.monthly_payment as monthlyPayment, o.total_amount_with_interest as totalAmountWithInterest,
+                o.risk_score as riskScore, o.risk_level as riskLevel, o.approved_by_admin as approvedByAdmin
+         FROM orders o WHERE o.id = ?`,
+        [orderId]
+      );
+      const order = orders[0];
+
+      // Lấy items
+      const [orderItems] = await connection.execute(
+        `SELECT oi.id, oi.order_id as orderId, oi.product_id as productId, oi.quantity, 
+                oi.unit_price as unitPrice, oi.subtotal,
+                p.name, p.brand, p.image_url as imageUrl
+         FROM order_items oi
+         LEFT JOIN products p ON oi.product_id = p.id
+         WHERE oi.order_id = ?`,
+        [orderId]
+      );
+
+      connection.release();
+
+      res.status(201).json({
+        ...order,
+        amount: parseFloat(order.amount),
+        interestRate: parseFloat(order.interestRate),
+        paymentTerms: parseInt(order.paymentTerms),
+        customerIncome: order.customerIncome ? parseFloat(order.customerIncome) : undefined,
+        installmentPeriod: order.installmentPeriod ? parseInt(order.installmentPeriod) : undefined,
+        monthlyPayment: order.monthlyPayment ? parseFloat(order.monthlyPayment) : undefined,
+        totalAmountWithInterest: order.totalAmountWithInterest ? parseFloat(order.totalAmountWithInterest) : undefined,
+        riskScore: order.riskScore ? parseInt(order.riskScore) : undefined,
+        riskLevel: order.riskLevel || undefined,
+        approvedByAdmin: order.approvedByAdmin === 1,
+        riskAssessment: riskAssessment || undefined,
+        items: orderItems.map(item => ({
+          id: item.id,
+          orderId: item.orderId,
+          productId: item.productId,
+          quantity: parseInt(item.quantity),
+          unitPrice: parseFloat(item.unitPrice),
+          subtotal: parseFloat(item.subtotal),
+          product: item.name ? {
+            name: item.name,
+            brand: item.brand,
+            imageUrl: item.imageUrl,
+          } : undefined,
+        })),
+      });
+    } catch (error) {
+      await connection.rollback();
+      connection.release();
+      throw error;
+    }
   } catch (error) {
     console.error('Create order error:', error);
-    res.status(500).json({ error: 'Lỗi server khi tạo order' });
+    res.status(500).json({ error: error.message || 'Lỗi server khi tạo order' });
   }
 });
 
