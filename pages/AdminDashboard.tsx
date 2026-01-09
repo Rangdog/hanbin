@@ -12,6 +12,15 @@ function ProductFormModal({ product, onClose, onSave }: { product: Product | nul
     description: product?.description || '',
     stockQuantity: product?.stockQuantity?.toString() || '0',
     status: product?.status || 'active',
+    ram: product?.ram?.toString() || '',
+    storage: product?.storage?.toString() || '',
+    screenSize: product?.screenSize?.toString() || '',
+    screenResolution: product?.screenResolution || '',
+    battery: product?.battery?.toString() || '',
+    cameraMain: product?.cameraMain?.toString() || '',
+    processor: product?.processor || '',
+    color: product?.color || '',
+    operatingSystem: product?.operatingSystem || '',
   });
   const [loading, setLoading] = useState(false);
 
@@ -28,6 +37,15 @@ function ProductFormModal({ product, onClose, onSave }: { product: Product | nul
           description: formData.description,
           stockQuantity: parseInt(formData.stockQuantity),
           status: formData.status as 'active' | 'inactive',
+          ram: formData.ram ? parseInt(formData.ram) : undefined,
+          storage: formData.storage ? parseInt(formData.storage) : undefined,
+          screenSize: formData.screenSize ? parseFloat(formData.screenSize) : undefined,
+          screenResolution: formData.screenResolution || undefined,
+          battery: formData.battery ? parseInt(formData.battery) : undefined,
+          cameraMain: formData.cameraMain ? parseInt(formData.cameraMain) : undefined,
+          processor: formData.processor || undefined,
+          color: formData.color || undefined,
+          operatingSystem: formData.operatingSystem || undefined,
         });
       } else {
         await backend.createProduct({
@@ -38,6 +56,15 @@ function ProductFormModal({ product, onClose, onSave }: { product: Product | nul
           description: formData.description,
           stockQuantity: parseInt(formData.stockQuantity),
           status: formData.status as 'active' | 'inactive',
+          ram: formData.ram ? parseInt(formData.ram) : undefined,
+          storage: formData.storage ? parseInt(formData.storage) : undefined,
+          screenSize: formData.screenSize ? parseFloat(formData.screenSize) : undefined,
+          screenResolution: formData.screenResolution || undefined,
+          battery: formData.battery ? parseInt(formData.battery) : undefined,
+          cameraMain: formData.cameraMain ? parseInt(formData.cameraMain) : undefined,
+          processor: formData.processor || undefined,
+          color: formData.color || undefined,
+          operatingSystem: formData.operatingSystem || undefined,
         });
       }
       onSave();

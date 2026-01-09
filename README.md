@@ -204,12 +204,17 @@ Mở trình duyệt và truy cập:
 
 ## 🔐 Đăng Nhập Lần Đầu
 
-Sau khi khởi tạo database, bạn có thể đăng nhập với tài khoản demo:
+Sau khi khởi tạo database, bạn có thể đăng nhập với các tài khoản demo:
 
+### Tài khoản User (Người dùng thường):
 - **Email**: `contact@techinnovations.com`
 - **Mật khẩu**: `password123`
 
-Hoặc bạn có thể đăng ký tài khoản mới từ giao diện.
+### Tài khoản Admin:
+- **Email**: `admin@supplychain.com`
+- **Mật khẩu**: `admin123`
+
+Hoặc bạn có thể đăng ký tài khoản mới từ giao diện (sẽ là user thường).
 
 ### ⚠️ Lưu ý về Xác nhận Email
 
@@ -220,6 +225,272 @@ Hoặc bạn có thể đăng ký tài khoản mới từ giao diện.
 4. Token xác nhận có thời hạn 24 giờ
 
 **Tài khoản demo** đã được xác nhận email sẵn nên có thể đăng nhập ngay.
+
+## 📖 Hướng Dẫn Sử Dụng
+
+### 👤 Hướng Dẫn cho User (Người Dùng)
+
+#### 1. Đăng Ký và Xác Nhận Email
+
+1. **Đăng ký tài khoản mới:**
+   - Truy cập trang đăng ký
+   - Điền thông tin: Tên công ty, Ngành nghề, Email, Mật khẩu
+   - Nhấn "Đăng ký"
+
+2. **Xác nhận email:**
+   - Sau khi đăng ký, hệ thống sẽ gửi email xác nhận (hoặc hiển thị token trên màn hình nếu chưa cấu hình SMTP)
+   - Nhập token xác nhận vào form "Xác nhận email"
+   - Token có thời hạn 24 giờ
+   - Sau khi xác nhận, bạn có thể đăng nhập
+
+#### 2. Đăng Nhập
+
+- Nhập email và mật khẩu đã đăng ký
+- Chỉ tài khoản đã xác nhận email mới có thể đăng nhập
+- Nếu quên mật khẩu, sử dụng chức năng "Quên mật khẩu"
+
+#### 3. Quản Lý Hồ Sơ (User Profile)
+
+- **Xem thông tin:** Hiển thị thông tin công ty, email, hạn mức tín dụng
+- **Cập nhật thông tin:** Nhấn "Chỉnh sửa" để cập nhật tên công ty, ngành nghề
+- **Đổi mật khẩu:**
+  - Nhập mật khẩu cũ
+  - Nhập mật khẩu mới (tối thiểu 6 ký tự)
+  - Xác nhận mật khẩu mới
+  - Sau khi đổi mật khẩu, bạn sẽ bị đăng xuất và cần đăng nhập lại
+
+#### 4. Tạo Đơn Hàng (Create Order)
+
+1. **Chọn sản phẩm:**
+   - Xem danh sách sản phẩm điện thoại có sẵn
+   - Mỗi sản phẩm hiển thị: Tên, hãng, giá, RAM/ROM, màn hình, camera, pin, tồn kho
+   - Nhấn "Thêm" để thêm sản phẩm vào giỏ hàng
+   - Có thể thêm nhiều sản phẩm với số lượng khác nhau
+
+2. **Điền thông tin đơn hàng:**
+   - **Buyer:** Tên người mua
+   - **Invoice Number:** Số hóa đơn
+   - **Due Date:** Ngày đến hạn thanh toán
+   - **Interest Rate:** Lãi suất (%)
+   - **Payment Terms:** Số ngày thanh toán
+
+3. **Sử dụng Buy Now Pay Later (BNPL) - Tùy chọn:**
+   - Tích vào checkbox "Sử dụng Buy Now Pay Later"
+   - **Thu nhập hàng tháng:** Nhập thu nhập của bạn (USD/tháng)
+   - **Kỳ hạn trả góp:** Chọn từ 3, 6, 9, 12, 18, hoặc 24 tháng
+   - Hệ thống sẽ tự động:
+     - Tính toán Debt-to-Income Ratio (DTI)
+     - Đánh giá rủi ro (Risk Level: low, medium, high, very_high)
+     - Tính lãi suất điều chỉnh dựa trên rủi ro
+     - Tính số tiền trả mỗi tháng
+     - Tính tổng tiền phải trả (bao gồm lãi)
+   - Nếu Risk Level là "very_high", đơn hàng sẽ bị từ chối tự động
+   - Nếu Risk Level là "high", đơn hàng sẽ ở trạng thái "pending" chờ admin duyệt
+   - Nếu Risk Level là "low" hoặc "medium", đơn hàng sẽ được tự động "approved"
+
+4. **Xem đánh giá rủi ro:**
+   - Hệ thống hiển thị real-time:
+     - Risk Score (0-100)
+     - Risk Level với màu sắc (xanh = thấp, vàng = trung bình, cam = cao, đỏ = rất cao)
+     - DTI Ratio (%)
+     - Số tiền trả mỗi tháng
+     - Tổng tiền phải trả
+     - Lãi suất điều chỉnh
+
+5. **Gửi đơn hàng:**
+   - Nhấn "Tạo Order"
+   - Hệ thống sẽ kiểm tra tồn kho và tạo đơn hàng
+   - Nếu sử dụng BNPL, đơn hàng sẽ được tự động duyệt hoặc chờ admin duyệt tùy theo risk level
+
+#### 5. Quản Lý Đơn Hàng (Order Management)
+
+- **Xem danh sách đơn hàng:**
+  - Hiển thị tất cả đơn hàng của bạn
+  - Lọc theo trạng thái: All, Pending, Approved, Rejected, Completed
+  - Mỗi đơn hàng hiển thị:
+    - Invoice Number
+    - Buyer
+    - Số tiền
+    - Trạng thái (màu sắc)
+    - Ngày tạo
+    - Danh sách sản phẩm (nếu có)
+    - Thông tin BNPL (nếu có): kỳ hạn, số tiền trả mỗi tháng, risk level
+
+- **Cập nhật đơn hàng:**
+  - Nhấn "Edit" để cập nhật thông tin đơn hàng
+  - Có thể thay đổi: Buyer, Amount, Interest Rate, Payment Terms, Status, Invoice Number, Due Date
+
+- **Xóa đơn hàng:**
+  - Nhấn "Delete" và xác nhận
+  - Chỉ có thể xóa đơn hàng của chính mình
+
+#### 6. Xem Đánh Giá Rủi Ro (Risk Metrics)
+
+- Trong trang User Profile, xem các chỉ số:
+  - Credit Score (điểm tín dụng)
+  - Payment History (lịch sử thanh toán)
+  - Industry Risk (rủi ro ngành)
+  - Market Conditions (điều kiện thị trường)
+- Dữ liệu được hiển thị dưới dạng biểu đồ trực quan
+
+#### 7. Quên Mật Khẩu
+
+1. Nhấn "Quên mật khẩu?" trên trang đăng nhập
+2. Nhập email đã đăng ký
+3. Hệ thống sẽ gửi email chứa token reset (hoặc hiển thị token trên màn hình)
+4. Nhập token và mật khẩu mới
+5. Token có thời hạn 1 giờ
+
+---
+
+### 👨‍💼 Hướng Dẫn cho Admin
+
+#### Đăng Nhập Admin
+
+- **Email:** `admin@supplychain.com`
+- **Mật khẩu:** `admin123`
+- Sau khi đăng nhập, bạn sẽ thấy menu "Admin Dashboard" trong sidebar
+
+#### 1. Dashboard Tổng Quan (Overview)
+
+**Thống kê tổng quan:**
+- **Tổng số khách hàng:** Số lượng user (không bao gồm admin)
+- **Tổng số đơn hàng:** Tổng số orders trong hệ thống
+- **Tổng doanh thu:** Tổng tiền từ các orders có trạng thái completed/paid/shipping
+
+**Doanh thu theo ngày:**
+- Biểu đồ doanh thu 30 ngày gần nhất
+- Hiển thị doanh thu theo từng ngày
+
+**Doanh thu theo tháng:**
+- Biểu đồ doanh thu 12 tháng gần nhất
+- Hiển thị doanh thu theo từng tháng
+
+**Khách hàng VIP:**
+- Top 10 khách hàng có tổng tiền đã chi cao nhất
+- Hiển thị: Tên công ty, số lượng orders, tổng tiền đã chi, lần mua gần nhất
+
+#### 2. Quản Lý Đơn Hàng (Orders)
+
+**Xem danh sách đơn hàng:**
+- Hiển thị tất cả đơn hàng trong hệ thống
+- Mỗi đơn hàng hiển thị:
+  - Invoice Number
+  - Thông tin khách hàng (tên công ty, email)
+  - Số tiền
+  - Trạng thái
+  - Danh sách sản phẩm
+  - Thông tin BNPL (nếu có)
+
+**Lọc đơn hàng:**
+- **Theo trạng thái:** Pending, Approved, Paid, Shipping, Completed, Cancelled, Rejected
+- **Theo khách hàng:** Chọn từ dropdown danh sách khách hàng
+- **Theo ngày:** Chọn từ ngày - đến ngày
+
+**Xem chi tiết đơn hàng:**
+- Nhấn nút "Chi tiết" trên mỗi đơn hàng
+- Modal hiển thị:
+  - Thông tin đầy đủ về đơn hàng
+  - Danh sách sản phẩm với hình ảnh
+  - Thông tin BNPL (kỳ hạn, số tiền trả mỗi tháng, risk level)
+  - Có thể thay đổi trạng thái đơn hàng trực tiếp trong modal
+
+**Tổng doanh thu:**
+- Hiển thị tổng doanh thu từ tất cả orders completed/paid/shipping ở đầu trang
+
+#### 3. Quản Lý Sản Phẩm (Products)
+
+**Xem danh sách sản phẩm:**
+- Hiển thị tất cả sản phẩm điện thoại
+- Mỗi sản phẩm hiển thị:
+  - Hình ảnh
+  - Tên, hãng
+  - Giá
+  - RAM/ROM
+  - Màn hình (kích thước, độ phân giải)
+  - Camera
+  - Pin
+  - Tồn kho
+  - Trạng thái (active/inactive)
+
+**Lọc sản phẩm:**
+- **Theo hãng:** Apple, Samsung, Xiaomi, Google, OnePlus
+- **Theo trạng thái:** Active, Inactive
+
+**Thêm sản phẩm mới:**
+1. Nhấn nút "+ Thêm sản phẩm"
+2. Điền thông tin:
+   - **Thông tin cơ bản:** Tên, Hãng, Giá, Mô tả, Số lượng tồn kho, Trạng thái
+   - **Hình ảnh:** URL hình ảnh (có thể dùng Unsplash hoặc URL khác)
+   - **Thông tin kỹ thuật:**
+     - RAM (GB)
+     - Bộ nhớ trong (GB)
+     - Kích thước màn hình (inch)
+     - Độ phân giải màn hình (ví dụ: 2400x1080)
+     - Dung lượng pin (mAh)
+     - Camera chính (MP)
+     - Chip xử lý (ví dụ: A17 Pro, Snapdragon 8 Gen 3)
+     - Màu sắc
+     - Hệ điều hành (ví dụ: iOS 17, Android 14)
+3. Nhấn "Lưu"
+
+**Sửa sản phẩm:**
+1. Nhấn nút "Sửa" trên sản phẩm
+2. Cập nhật thông tin cần thiết
+3. Nhấn "Lưu"
+
+**Xóa sản phẩm:**
+1. Nhấn nút "Xóa" trên sản phẩm
+2. Xác nhận xóa
+3. **Lưu ý:** Sản phẩm đã có trong orders sẽ không thể xóa (soft delete - chuyển sang inactive)
+
+**Bật/Tắt bán sản phẩm:**
+- Nhấn nút ⏸ (Tắt bán) hoặc ▶ (Bật bán) để chuyển trạng thái active/inactive
+- Sản phẩm inactive sẽ không hiển thị trong danh sách khi user tạo order
+
+#### 4. Quản Lý Khách Hàng (Customers)
+
+**Xem danh sách khách hàng:**
+- Hiển thị tất cả user (không bao gồm admin)
+- Mỗi khách hàng hiển thị:
+  - Tên công ty
+  - Email
+  - Ngành nghề
+  - Số lượng orders
+  - Tổng tiền đã chi
+  - Trạng thái khóa (locked/unlocked)
+
+**Tìm kiếm khách hàng:**
+- Nhập tên công ty hoặc email vào ô tìm kiếm
+
+**Khóa/Mở khóa khách hàng:**
+- Nhấn nút "Khóa" để khóa tài khoản
+- Nhấn nút "Mở khóa" để mở khóa tài khoản
+- **Lưu ý:** Khách hàng bị khóa sẽ:
+  - Không thể đăng nhập
+  - Không thể tạo đơn hàng mới
+
+**Xem lịch sử đơn hàng của khách hàng:**
+- (Có thể mở rộng: Nhấn vào khách hàng để xem chi tiết lịch sử orders)
+
+#### 5. Duyệt Đơn Hàng BNPL
+
+Khi có đơn hàng sử dụng BNPL với Risk Level "high":
+1. Vào "Quản Lý Order"
+2. Tìm đơn hàng có trạng thái "pending" và có thông tin BNPL
+3. Nhấn "Chi tiết" để xem:
+   - Thông tin khách hàng
+   - Thu nhập khách hàng
+   - Kỳ hạn trả góp
+   - Risk Score và Risk Level
+   - Số tiền trả mỗi tháng
+   - Tổng tiền phải trả
+4. Quyết định:
+   - **Duyệt:** Chuyển trạng thái sang "approved"
+   - **Từ chối:** Chuyển trạng thái sang "rejected"
+   - **Yêu cầu thêm thông tin:** Giữ trạng thái "pending" và liên hệ khách hàng
+
+---
 
 ## 📧 Cấu Hình Email (Tùy Chọn)
 
@@ -426,7 +697,8 @@ hanbin/
 │   │   ├── 002_add_user_role_and_locked.sql
 │   │   ├── 003_update_order_status.sql
 │   │   ├── 004_add_audit_log.sql
-│   │   └── 005_add_bnpl_fields.sql
+│   │   ├── 005_add_bnpl_fields.sql
+│   │   └── 006_add_phone_specs.sql
 │   ├── seeders/              # Database seeders
 │   │   ├── 001_seed_products.sql
 │   │   └── 002_seed_admin_user.sql

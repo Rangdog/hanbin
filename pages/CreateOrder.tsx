@@ -616,7 +616,17 @@ export default function CreateOrder() {
                   <div style={{ flex: 1 }}>
                     <h3 style={{ fontWeight: '600', marginBottom: '0.25rem' }}>{product.name}</h3>
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>{product.brand}</p>
-                    <p style={{ fontWeight: '600', color: '#3b82f6' }}>${product.price.toLocaleString()}</p>
+                    <p style={{ fontWeight: '600', color: '#3b82f6', marginBottom: '0.25rem' }}>${product.price.toLocaleString()}</p>
+                    {product.ram && product.storage && (
+                      <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.125rem' }}>
+                        {product.ram}GB/{product.storage}GB
+                      </p>
+                    )}
+                    {product.screenSize && product.cameraMain && (
+                      <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.125rem' }}>
+                        {product.screenSize}" • {product.cameraMain}MP
+                      </p>
+                    )}
                     <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Tồn kho: {product.stockQuantity}</p>
                   </div>
                   <button

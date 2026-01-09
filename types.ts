@@ -21,6 +21,16 @@ export interface Product {
   status: 'active' | 'inactive';
   createdAt?: string;
   updatedAt?: string;
+  // Phone specifications
+  ram?: number; // GB
+  storage?: number; // GB
+  screenSize?: number; // inch
+  screenResolution?: string; // e.g., "2400x1080"
+  battery?: number; // mAh
+  cameraMain?: number; // MP
+  processor?: string; // e.g., "A17 Pro", "Snapdragon 8 Gen 3"
+  color?: string; // e.g., "Titanium", "Black", "Blue"
+  operatingSystem?: string; // e.g., "iOS 17", "Android 14"
 }
 
 export interface OrderItem {

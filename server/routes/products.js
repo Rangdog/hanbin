@@ -43,7 +43,9 @@ router.get('/', async (req, res) => {
     const { brand, status, search } = req.query;
     let query = `
       SELECT id, name, brand, image_url as imageUrl, price, description, 
-             stock_quantity as stockQuantity, status, created_at as createdAt, updated_at as updatedAt
+             stock_quantity as stockQuantity, status, created_at as createdAt, updated_at as updatedAt,
+             ram, storage, screen_size as screenSize, screen_resolution as screenResolution,
+             battery, camera_main as cameraMain, processor, color, operating_system as operatingSystem
       FROM products WHERE 1=1
     `;
     const params = [];
@@ -71,6 +73,11 @@ router.get('/', async (req, res) => {
       ...p,
       price: parseFloat(p.price),
       stockQuantity: parseInt(p.stockQuantity),
+      ram: p.ram ? parseInt(p.ram) : undefined,
+      storage: p.storage ? parseInt(p.storage) : undefined,
+      screenSize: p.screenSize ? parseFloat(p.screenSize) : undefined,
+      battery: p.battery ? parseInt(p.battery) : undefined,
+      cameraMain: p.cameraMain ? parseInt(p.cameraMain) : undefined,
     })));
   } catch (error) {
     console.error('Get products error:', error);
@@ -114,7 +121,7 @@ router.get('/:id', async (req, res) => {
  */
 router.post('/', requireAdmin, async (req, res) => {
   try {
-    const { name, brand, imageUrl, price, description, stockQuantity, status } = req.body;
+    const { name, brand, imageUrl, price, description, stockQuantity, status, ram, storage, screenSize, screenResolution, battery, cameraMain, processor, color, operatingSystem } = req.body;
 
     if (!name || !brand || !price || stockQuantity === undefined) {
       return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin' });
@@ -122,14 +129,19 @@ router.post('/', requireAdmin, async (req, res) => {
 
     const productId = generateUUID();
     await db.execute(
-      `INSERT INTO products (id, name, brand, image_url, price, description, stock_quantity, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [productId, name, brand, imageUrl || '', price, description || '', stockQuantity || 0, status || 'active']
+      `INSERT INTO products (id, name, brand, image_url, price, description, stock_quantity, status,
+                            ram, storage, screen_size, screen_resolution, battery, camera_main, processor, color, operating_system)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [productId, name, brand, imageUrl || '', price, description || '', stockQuantity || 0, status || 'active',
+       req.body.ram || null, req.body.storage || null, req.body.screenSize || null, req.body.screenResolution || null, 
+       req.body.battery || null, req.body.cameraMain || null, req.body.processor || null, req.body.color || null, req.body.operatingSystem || null]
     );
 
     const [products] = await db.execute(
       `SELECT id, name, brand, image_url as imageUrl, price, description, 
-              stock_quantity as stockQuantity, status, created_at as createdAt, updated_at as updatedAt
+              stock_quantity as stockQuantity, status, created_at as createdAt, updated_at as updatedAt,
+              ram, storage, screen_size as screenSize, screen_resolution as screenResolution,
+              battery, camera_main as cameraMain, processor, color, operating_system as operatingSystem
        FROM products WHERE id = ?`,
       [productId]
     );
@@ -139,6 +151,11 @@ router.post('/', requireAdmin, async (req, res) => {
       ...product,
       price: parseFloat(product.price),
       stockQuantity: parseInt(product.stockQuantity),
+      ram: product.ram ? parseInt(product.ram) : undefined,
+      storage: product.storage ? parseInt(product.storage) : undefined,
+      screenSize: product.screenSize ? parseFloat(product.screenSize) : undefined,
+      battery: product.battery ? parseInt(product.battery) : undefined,
+      cameraMain: product.cameraMain ? parseInt(product.cameraMain) : undefined,
     });
   } catch (error) {
     console.error('Create product error:', error);
@@ -153,7 +170,7 @@ router.post('/', requireAdmin, async (req, res) => {
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, brand, imageUrl, price, description, stockQuantity, status } = req.body;
+    const { name, brand, imageUrl, price, description, stockQuantity, status, ram, storage, screenSize, screenResolution, battery, cameraMain, processor, color, operatingSystem } = req.body;
 
     // Kiểm tra sản phẩm tồn tại
     const [existing] = await db.execute('SELECT id FROM products WHERE id = ?', [id]);
@@ -170,6 +187,15 @@ router.put('/:id', requireAdmin, async (req, res) => {
     if (description !== undefined) updates.description = description;
     if (stockQuantity !== undefined) updates.stock_quantity = stockQuantity;
     if (status !== undefined) updates.status = status;
+    if (ram !== undefined) updates.ram = ram;
+    if (storage !== undefined) updates.storage = storage;
+    if (screenSize !== undefined) updates.screen_size = screenSize;
+    if (screenResolution !== undefined) updates.screen_resolution = screenResolution;
+    if (battery !== undefined) updates.battery = battery;
+    if (cameraMain !== undefined) updates.camera_main = cameraMain;
+    if (processor !== undefined) updates.processor = processor;
+    if (color !== undefined) updates.color = color;
+    if (operatingSystem !== undefined) updates.operating_system = operatingSystem;
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: 'Không có trường nào để cập nhật' });
@@ -183,7 +209,9 @@ router.put('/:id', requireAdmin, async (req, res) => {
     // Lấy sản phẩm đã cập nhật
     const [products] = await db.execute(
       `SELECT id, name, brand, image_url as imageUrl, price, description, 
-              stock_quantity as stockQuantity, status, created_at as createdAt, updated_at as updatedAt
+              stock_quantity as stockQuantity, status, created_at as createdAt, updated_at as updatedAt,
+              ram, storage, screen_size as screenSize, screen_resolution as screenResolution,
+              battery, camera_main as cameraMain, processor, color, operating_system as operatingSystem
        FROM products WHERE id = ?`,
       [id]
     );
@@ -193,6 +221,11 @@ router.put('/:id', requireAdmin, async (req, res) => {
       ...product,
       price: parseFloat(product.price),
       stockQuantity: parseInt(product.stockQuantity),
+      ram: product.ram ? parseInt(product.ram) : undefined,
+      storage: product.storage ? parseInt(product.storage) : undefined,
+      screenSize: product.screenSize ? parseFloat(product.screenSize) : undefined,
+      battery: product.battery ? parseInt(product.battery) : undefined,
+      cameraMain: product.cameraMain ? parseInt(product.cameraMain) : undefined,
     });
   } catch (error) {
     console.error('Update product error:', error);
