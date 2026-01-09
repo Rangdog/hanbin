@@ -381,6 +381,8 @@ router.post('/verify-email', async (req, res) => {
         creditLimit: parseFloat(user.credit_limit),
         availableCredit: parseFloat(user.available_credit),
         spendingCapacity: parseFloat(user.spending_capacity),
+        role: user.role || 'user',
+        isLocked: user.is_locked || false,
       },
       token: sessionToken,
     });
@@ -396,14 +398,8 @@ router.post('/verify-email', async (req, res) => {
  */
 router.get('/me', async (req, res) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ error: 'Chưa đăng nhập' });
-    }
-
-    // TODO: Verify token và lấy user_id từ token
-    // Hiện tại đơn giản hóa bằng cách lấy từ query hoặc body
-    const userId = req.query.userId || req.body.userId;
+    // Lấy userId từ header X-User-Id (frontend gửi)
+    const userId = req.headers['x-user-id'];
     if (!userId) {
       return res.status(401).json({ error: 'Chưa đăng nhập' });
     }
@@ -422,6 +418,8 @@ router.get('/me', async (req, res) => {
       creditLimit: parseFloat(user.credit_limit),
       availableCredit: parseFloat(user.available_credit),
       spendingCapacity: parseFloat(user.spending_capacity),
+      role: user.role || 'user',
+      isLocked: user.is_locked || false,
     });
   } catch (error) {
     console.error('Get me error:', error);

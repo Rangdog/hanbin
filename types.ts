@@ -51,17 +51,16 @@ export interface Order {
   paymentTerms: number;
   status: 'pending' | 'paid' | 'shipping' | 'completed' | 'cancelled' | 'approved' | 'rejected';
   invoiceNumber: string;
-  dueDate: string;
   createdAt: string;
   items?: OrderItem[];
   userId?: string;
-  // BNPL fields
-  customerIncome?: number;
-  installmentPeriod?: number;
-  monthlyPayment?: number;
-  totalAmountWithInterest?: number;
-  riskScore?: number;
-  riskLevel?: 'low' | 'medium' | 'high' | 'very_high';
+  // BNPL fields (bắt buộc)
+  customerIncome: number;
+  installmentPeriod: number;
+  monthlyPayment: number;
+  totalAmountWithInterest: number;
+  riskScore: number;
+  riskLevel: 'low' | 'medium' | 'high' | 'very_high';
   approvedByAdmin?: boolean;
 }
 

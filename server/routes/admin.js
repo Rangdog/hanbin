@@ -130,7 +130,7 @@ router.get('/orders', requireAdmin, async (req, res) => {
       SELECT o.id, o.user_id as userId, u.company_name as customerName, u.email as customerEmail,
              o.buyer, o.amount, o.interest_rate as interestRate,
              o.payment_terms as paymentTerms, o.status, o.invoice_number as invoiceNumber,
-             o.due_date as dueDate, o.created_at as createdAt,
+             o.created_at as createdAt,
              o.customer_income as customerIncome, o.installment_period as installmentPeriod,
              o.monthly_payment as monthlyPayment, o.total_amount_with_interest as totalAmountWithInterest,
              o.risk_score as riskScore, o.risk_level as riskLevel
@@ -326,7 +326,7 @@ router.put('/orders/:id', requireAdmin, async (req, res) => {
     const [updatedOrders] = await db.execute(
       `SELECT o.id, o.user_id as userId, u.company_name as customerName, o.buyer, o.amount, o.interest_rate as interestRate,
               o.payment_terms as paymentTerms, o.status, o.invoice_number as invoiceNumber,
-              o.due_date as dueDate, o.created_at as createdAt
+              o.created_at as createdAt
        FROM orders o
        JOIN users u ON o.user_id = u.id
        WHERE o.id = ?`,

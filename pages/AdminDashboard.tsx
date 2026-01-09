@@ -139,7 +139,7 @@ function ProductFormModal({ product, onClose, onSave }: { product: Product | nul
             />
           </div>
           <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Giá ($) *</label>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Giá (VND) *</label>
             <input
               type="number"
               step="0.01"
@@ -327,7 +327,7 @@ export default function AdminDashboard() {
                 </div>
                 <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '0.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                   <h3 style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>Tổng Doanh Thu</h3>
-                  <p style={{ fontSize: '2rem', fontWeight: 'bold' }}>${stats.totalRevenue.toLocaleString()}</p>
+                  <p style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stats.totalRevenue.toLocaleString('vi-VN')} VND</p>
                 </div>
               </div>
 
@@ -339,7 +339,7 @@ export default function AdminDashboard() {
                       <div>
                         <p style={{ fontWeight: '600' }}>{idx + 1}. {customer.companyName}</p>
                         <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                          {customer.orderCount} orders • ${customer.totalSpent.toLocaleString()} • 
+                          {customer.orderCount} orders • {customer.totalSpent.toLocaleString('vi-VN')} VND • 
                           Lần mua gần nhất: {customer.lastOrderDate || 'Chưa có'}
                         </p>
                       </div>
@@ -354,7 +354,7 @@ export default function AdminDashboard() {
             <div>
               <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#eff6ff', borderRadius: '0.5rem' }}>
                 <p style={{ fontSize: '1.25rem', fontWeight: '600', color: '#1e40af' }}>
-                  Tổng doanh thu: ${totalRevenue.toLocaleString()}
+                  Tổng doanh thu: {totalRevenue.toLocaleString('vi-VN')} VND
                 </p>
               </div>
 
@@ -420,21 +420,21 @@ export default function AdminDashboard() {
                         </button>
                       </div>
                     </div>
-                    <p style={{ fontWeight: '600', fontSize: '1.25rem' }}>${order.amount.toLocaleString()}</p>
+                    <p style={{ fontWeight: '600', fontSize: '1.25rem' }}>{order.amount.toLocaleString('vi-VN')} VND</p>
                     {order.items && order.items.length > 0 && (
                       <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e5e7eb' }}>
                         <p style={{ fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.5rem' }}>Sản phẩm:</p>
                         {order.items.map(item => (
                           <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
                             <span>{item.product?.name || `Product ${item.productId}`} x {item.quantity}</span>
-                            <span>${item.subtotal.toLocaleString()}</span>
+                            <span>{item.subtotal.toLocaleString('vi-VN')} VND</span>
                           </div>
                         ))}
                       </div>
                     )}
                     {order.installmentPeriod && (
                       <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e5e7eb', fontSize: '0.875rem', color: '#6b7280' }}>
-                        <p>Trả góp: {order.installmentPeriod} tháng • ${order.monthlyPayment?.toLocaleString()}/tháng</p>
+                        <p>Trả góp: {order.installmentPeriod} tháng • {order.monthlyPayment?.toLocaleString('vi-VN')} VND/tháng</p>
                         {order.riskLevel && <p>Risk: {order.riskLevel.toUpperCase()} ({order.riskScore}/100)</p>}
                       </div>
                     )}
@@ -481,7 +481,7 @@ export default function AdminDashboard() {
                       </div>
                       <div>
                         <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Số tiền</p>
-                        <p style={{ fontWeight: '600', fontSize: '1.25rem' }}>${selectedOrder.amount.toLocaleString()}</p>
+                        <p style={{ fontWeight: '600', fontSize: '1.25rem' }}>{selectedOrder.amount.toLocaleString('vi-VN')} VND</p>
                       </div>
                       <div>
                         <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Trạng thái</p>
@@ -516,7 +516,7 @@ export default function AdminDashboard() {
                                 <p style={{ fontWeight: '600' }}>{item.product?.name || `Product ${item.productId}`}</p>
                                 <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>{item.product?.brand} • Số lượng: {item.quantity}</p>
                               </div>
-                              <p style={{ fontWeight: '600' }}>${item.subtotal.toLocaleString()}</p>
+                              <p style={{ fontWeight: '600' }}>{item.subtotal.toLocaleString('vi-VN')} VND</p>
                             </div>
                           ))}
                         </div>
@@ -525,8 +525,8 @@ export default function AdminDashboard() {
                         <div style={{ padding: '1rem', backgroundColor: '#eff6ff', borderRadius: '0.375rem' }}>
                           <p style={{ fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.5rem' }}>Thông tin trả góp</p>
                           <p style={{ fontSize: '0.875rem' }}>Kỳ hạn: {selectedOrder.installmentPeriod} tháng</p>
-                          <p style={{ fontSize: '0.875rem' }}>Số tiền trả mỗi tháng: ${selectedOrder.monthlyPayment?.toLocaleString()}</p>
-                          <p style={{ fontSize: '0.875rem' }}>Tổng tiền phải trả: ${selectedOrder.totalAmountWithInterest?.toLocaleString()}</p>
+                          <p style={{ fontSize: '0.875rem' }}>Số tiền trả mỗi tháng: {selectedOrder.monthlyPayment?.toLocaleString('vi-VN')} VND</p>
+                          <p style={{ fontSize: '0.875rem' }}>Tổng tiền phải trả: {selectedOrder.totalAmountWithInterest?.toLocaleString('vi-VN')} VND</p>
                           {selectedOrder.riskLevel && (
                             <p style={{ fontSize: '0.875rem' }}>Risk Level: {selectedOrder.riskLevel.toUpperCase()} ({selectedOrder.riskScore}/100)</p>
                           )}
@@ -582,7 +582,7 @@ export default function AdminDashboard() {
                     <img src={product.imageUrl || 'https://via.placeholder.com/200'} alt={product.name} style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '0.375rem', marginBottom: '1rem' }} />
                     <h3 style={{ fontWeight: '600', marginBottom: '0.5rem' }}>{product.name}</h3>
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>{product.brand}</p>
-                    <p style={{ fontWeight: '600', fontSize: '1.25rem', marginBottom: '0.5rem' }}>${product.price.toLocaleString()}</p>
+                    <p style={{ fontWeight: '600', fontSize: '1.25rem', marginBottom: '0.5rem' }}>{product.price.toLocaleString('vi-VN')} VND</p>
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>Tồn kho: {product.stockQuantity}</p>
                     <span style={{ display: 'inline-block', padding: '0.25rem 0.75rem', borderRadius: '9999px', backgroundColor: product.status === 'active' ? '#d1fae5' : '#fee2e2', color: product.status === 'active' ? '#065f46' : '#991b1b', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
                       {product.status}
@@ -667,7 +667,7 @@ export default function AdminDashboard() {
                         <p style={{ color: '#6b7280', marginBottom: '0.25rem' }}>{customer.email}</p>
                         <p style={{ color: '#6b7280', marginBottom: '0.25rem' }}>{customer.industry}</p>
                         <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                          {customer.orderCount} orders • ${customer.totalSpent.toLocaleString()} đã chi
+                          {customer.orderCount} orders • {customer.totalSpent.toLocaleString('vi-VN')} VND đã chi
                         </p>
                       </div>
                       <div>

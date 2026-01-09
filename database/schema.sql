@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_terms INT NOT NULL DEFAULT 30,
   status ENUM('pending', 'approved', 'rejected', 'completed') NOT NULL DEFAULT 'pending',
   invoice_number VARCHAR(100),
-  due_date DATE,
   created_at DATE NOT NULL,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

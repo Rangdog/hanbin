@@ -54,7 +54,7 @@ router.get('/orders', async (req, res) => {
     const [orders] = await db.execute(
       `SELECT id, user_id as userId, buyer, amount, interest_rate as interestRate,
               payment_terms as paymentTerms, status, invoice_number as invoiceNumber,
-              due_date as dueDate, created_at as createdAt,
+              created_at as createdAt,
               customer_income as customerIncome, installment_period as installmentPeriod,
               monthly_payment as monthlyPayment, total_amount_with_interest as totalAmountWithInterest,
               risk_score as riskScore, risk_level as riskLevel, approved_by_admin as approvedByAdmin
@@ -101,7 +101,7 @@ router.post('/orders', async (req, res) => {
       return res.status(403).json({ error: 'Tài khoản của bạn đã bị khóa' });
     }
 
-    const { buyer, amount, interestRate, paymentTerms, invoiceNumber, dueDate, status, items, customerIncome, installmentPeriod } = req.body;
+    const { buyer, amount, invoiceNumber, status, items, customerIncome, installmentPeriod } = req.body;
 
     // Validation: Nếu có items thì tính amount từ items, nếu không thì dùng amount trực tiếp
     let finalAmount = amount;
@@ -110,39 +110,24 @@ router.post('/orders', async (req, res) => {
       finalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
     }
 
-    if (!buyer || !finalAmount || !invoiceNumber || !dueDate) {
+    if (!buyer || !finalAmount || !invoiceNumber) {
       return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin' });
     }
 
-    // BNPL Validation: Nếu có installmentPeriod thì phải có customerIncome
-    if (installmentPeriod && installmentPeriod >= 3) {
-      if (!customerIncome || customerIncome <= 0) {
-        return res.status(400).json({ error: 'Vui lòng nhập thu nhập hàng tháng để sử dụng tính năng trả góp' });
-      }
-      if (installmentPeriod < 3) {
-        return res.status(400).json({ error: 'Kỳ hạn trả góp phải từ 3 tháng trở lên' });
-      }
+    // BNPL Validation (Bắt buộc)
+    if (!customerIncome || customerIncome <= 0) {
+      return res.status(400).json({ error: 'Vui lòng nhập thu nhập hàng tháng (VND)' });
+    }
+    if (!installmentPeriod || installmentPeriod < 3) {
+      return res.status(400).json({ error: 'Kỳ hạn trả góp phải từ 3 tháng trở lên' });
     }
 
-    // Tính toán risk assessment và payment nếu có BNPL
-    let riskAssessment = null;
-    let finalInterestRate = interestRate || 3.5;
-    let monthlyPayment = null;
-    let totalAmountWithInterest = finalAmount;
-    let finalInstallmentPeriod = installmentPeriod || null;
-
-    if (installmentPeriod && installmentPeriod >= 3 && customerIncome) {
-      // Tính risk assessment
-      riskAssessment = calculateRiskScore(customerIncome, finalAmount, installmentPeriod);
-      
-      // Tính lãi suất dựa trên risk level
-      finalInterestRate = calculateInterestRate(riskAssessment.riskLevel, installmentPeriod);
-      
-      // Tính số tiền trả mỗi tháng và tổng tiền
-      const principal = finalAmount;
-      monthlyPayment = calculateMonthlyPayment(principal, finalInterestRate, installmentPeriod);
-      totalAmountWithInterest = monthlyPayment * installmentPeriod;
-    }
+    // Tính toán risk assessment và payment (BNPL bắt buộc)
+    const riskAssessment = calculateRiskScore(customerIncome, finalAmount, installmentPeriod);
+    const finalInterestRate = calculateInterestRate(riskAssessment.riskLevel, installmentPeriod);
+    const principal = finalAmount;
+    const monthlyPayment = calculateMonthlyPayment(principal, finalInterestRate, installmentPeriod);
+    const totalAmountWithInterest = monthlyPayment * installmentPeriod;
 
     const orderId = generateUUID();
     const createdAt = new Date().toISOString().split('T')[0];
@@ -154,31 +139,23 @@ router.post('/orders', async (req, res) => {
     try {
       // Xác định status dựa trên risk assessment
       let orderStatus = status || 'pending';
-      if (riskAssessment && canApproveOrder(riskAssessment.riskScore, riskAssessment.riskLevel)) {
+      if (canApproveOrder(riskAssessment.riskScore, riskAssessment.riskLevel)) {
         // Tự động approve nếu risk thấp/trung bình
         orderStatus = 'approved';
-      } else if (riskAssessment && riskAssessment.riskLevel === 'very_high') {
+      } else if (riskAssessment.riskLevel === 'very_high') {
         // Từ chối nếu risk rất cao
         orderStatus = 'rejected';
       }
 
-      // Tính due_date dựa trên installment_period nếu có
-      let finalDueDate = dueDate;
-      if (finalInstallmentPeriod) {
-        const dueDateObj = new Date();
-        dueDateObj.setMonth(dueDateObj.getMonth() + finalInstallmentPeriod);
-        finalDueDate = dueDateObj.toISOString().split('T')[0];
-      }
-
-      // Tạo order với BNPL fields
+      // Tạo order với BNPL fields (bắt buộc)
       await connection.execute(
-        `INSERT INTO orders (id, user_id, buyer, amount, interest_rate, payment_terms, status, invoice_number, due_date, created_at,
+        `INSERT INTO orders (id, user_id, buyer, amount, interest_rate, payment_terms, status, invoice_number, created_at,
                             customer_income, installment_period, monthly_payment, total_amount_with_interest, risk_score, risk_level, approved_by_admin)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          orderId, userId, buyer, finalAmount, finalInterestRate, paymentTerms || 30, orderStatus, invoiceNumber, finalDueDate, createdAt,
-          customerIncome || null, finalInstallmentPeriod || null, monthlyPayment || null, totalAmountWithInterest || null,
-          riskAssessment?.riskScore || null, riskAssessment?.riskLevel || null, orderStatus === 'approved' ? 1 : 0
+          orderId, userId, buyer, finalAmount, finalInterestRate, installmentPeriod * 30, orderStatus, invoiceNumber, createdAt,
+          customerIncome, installmentPeriod, monthlyPayment, totalAmountWithInterest,
+          riskAssessment.riskScore, riskAssessment.riskLevel, orderStatus === 'approved' ? 1 : 0
         ]
       );
 
@@ -406,6 +383,8 @@ router.get('/user', async (req, res) => {
       creditLimit: parseFloat(user.credit_limit),
       availableCredit: parseFloat(user.available_credit),
       spendingCapacity: parseFloat(user.spending_capacity),
+      role: user.role || 'user',
+      isLocked: user.is_locked || false,
     });
   } catch (error) {
     console.error('Get user error:', error);
@@ -451,6 +430,8 @@ router.put('/user', async (req, res) => {
       creditLimit: parseFloat(user.credit_limit),
       availableCredit: parseFloat(user.available_credit),
       spendingCapacity: parseFloat(user.spending_capacity),
+      role: user.role || 'user',
+      isLocked: user.is_locked || false,
     });
   } catch (error) {
     console.error('Update user error:', error);

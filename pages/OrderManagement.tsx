@@ -124,7 +124,7 @@ export default function OrderManagement() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
                 <div>
                   <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Amount</p>
-                  <p style={{ fontWeight: '600' }}>${order.amount.toLocaleString()}</p>
+                  <p style={{ fontWeight: '600' }}>{order.amount.toLocaleString('vi-VN')} VND</p>
                 </div>
                 <div>
                   <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Interest Rate</p>
@@ -138,12 +138,12 @@ export default function OrderManagement() {
                     </div>
                     <div>
                       <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Số tiền trả mỗi tháng</p>
-                      <p style={{ fontWeight: '600', color: '#10b981' }}>${order.monthlyPayment?.toLocaleString() || 'N/A'}</p>
+                      <p style={{ fontWeight: '600', color: '#10b981' }}>{order.monthlyPayment?.toLocaleString('vi-VN') || 'N/A'} VND</p>
                     </div>
                     {order.totalAmountWithInterest && (
                       <div>
                         <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Tổng tiền phải trả</p>
-                        <p style={{ fontWeight: '600' }}>${order.totalAmountWithInterest.toLocaleString()}</p>
+                        <p style={{ fontWeight: '600' }}>{order.totalAmountWithInterest.toLocaleString('vi-VN')} VND</p>
                       </div>
                     )}
                     {order.riskLevel && (
@@ -167,8 +167,6 @@ export default function OrderManagement() {
                       <p style={{ fontWeight: '600' }}>{order.paymentTerms} days</p>
                     </div>
                     <div>
-                      <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>Due Date</p>
-                      <p style={{ fontWeight: '600' }}>{order.dueDate}</p>
                     </div>
                   </>
                 )}
@@ -184,7 +182,7 @@ export default function OrderManagement() {
                   {order.items.map(item => (
                     <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
                       <span>{item.product?.name || `Product ${item.productId}`} x {item.quantity}</span>
-                      <span>${item.subtotal.toLocaleString()}</span>
+                      <span>{item.subtotal.toLocaleString('vi-VN')} VND</span>
                     </div>
                   ))}
                 </div>

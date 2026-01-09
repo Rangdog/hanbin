@@ -15,10 +15,27 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Effect để tự động chuyển trang khi user thay đổi (sau khi đăng nhập)
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'admin' && currentPage !== 'admin') {
+        setCurrentPage('admin');
+      } else if (user.role !== 'admin' && currentPage === 'admin') {
+        setCurrentPage('orders');
+      }
+    }
+  }, [user?.role]); // Chỉ theo dõi role, không theo dõi toàn bộ user object
+
   useEffect(() => {
     (async () => {
       const existing = await backend.getCurrentUser();
-      if (existing) setUser(existing);
+      if (existing) {
+        setUser(existing);
+        // Nếu là admin, tự động chuyển sang trang admin
+        if (existing.role === 'admin') {
+          setCurrentPage('admin');
+        }
+      }
       setLoading(false);
     })();
   }, []);
@@ -26,6 +43,10 @@ export default function App() {
   const refreshUser = async () => {
     const me = await backend.getUser();
     setUser(me);
+    // Nếu là admin, tự động chuyển sang trang admin
+    if (me.role === 'admin') {
+      setCurrentPage('admin');
+    }
   };
 
   const handleLogout = async () => {
@@ -35,6 +56,7 @@ export default function App() {
 
   const renderPage = () => {
     if (!user) return null;
+    
     switch (currentPage) {
       case 'orders':
         return <OrderManagement />;
@@ -45,7 +67,8 @@ export default function App() {
       case 'admin':
         return user.role === 'admin' ? <AdminDashboard /> : <OrderManagement />;
       default:
-        return <OrderManagement />;
+        // Nếu là admin, mặc định hiển thị AdminDashboard
+        return user.role === 'admin' ? <AdminDashboard /> : <OrderManagement />;
     }
   };
 

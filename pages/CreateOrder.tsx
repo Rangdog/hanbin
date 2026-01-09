@@ -22,13 +22,9 @@ export default function CreateOrder() {
   const [formData, setFormData] = useState({
     buyer: '',
     amount: '',
-    interestRate: '3.5',
-    paymentTerms: '30',
     invoiceNumber: '',
-    dueDate: '',
     customerIncome: '',
     installmentPeriod: '',
-    useBNPL: false,
   });
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
@@ -41,13 +37,13 @@ export default function CreateOrder() {
   }, []);
 
   useEffect(() => {
-    // Tính toán risk assessment khi có đủ thông tin
-    if (formData.useBNPL && formData.customerIncome && formData.installmentPeriod) {
+    // Tính toán risk assessment khi có đủ thông tin (BNPL luôn bắt buộc)
+    if (formData.customerIncome && formData.installmentPeriod) {
       calculateRisk();
     } else {
       setRiskAssessment(null);
     }
-  }, [formData.useBNPL, formData.customerIncome, formData.installmentPeriod, selectedItems]);
+  }, [formData.customerIncome, formData.installmentPeriod, selectedItems]);
 
   const loadProducts = async () => {
     try {
@@ -176,7 +172,7 @@ export default function CreateOrder() {
     try {
       const totalAmount = selectedItems.length > 0 ? calculateTotal() : parseFloat(formData.amount || '0');
       
-      if (!formData.buyer || !formData.invoiceNumber || !formData.dueDate) {
+      if (!formData.buyer || !formData.invoiceNumber) {
         throw new Error('Vui lòng điền đầy đủ thông tin');
       }
 
@@ -188,35 +184,30 @@ export default function CreateOrder() {
         throw new Error('Vui lòng nhập số tiền hoặc chọn sản phẩm');
       }
 
-      // BNPL validation
-      if (formData.useBNPL) {
-        if (!formData.customerIncome || parseFloat(formData.customerIncome) <= 0) {
-          throw new Error('Vui lòng nhập thu nhập hàng tháng');
-        }
-        if (!formData.installmentPeriod || parseInt(formData.installmentPeriod) < 3) {
-          throw new Error('Kỳ hạn trả góp phải từ 3 tháng trở lên');
-        }
-        if (riskAssessment && riskAssessment.riskLevel === 'very_high') {
-          throw new Error('Rủi ro quá cao. Đơn hàng không thể được chấp nhận.');
-        }
+      // BNPL validation (bắt buộc)
+      if (!formData.customerIncome || parseFloat(formData.customerIncome) <= 0) {
+        throw new Error('Vui lòng nhập thu nhập hàng tháng');
+      }
+      if (!formData.installmentPeriod || parseInt(formData.installmentPeriod) < 3) {
+        throw new Error('Kỳ hạn trả góp phải từ 3 tháng trở lên');
+      }
+      if (riskAssessment && riskAssessment.riskLevel === 'very_high') {
+        throw new Error('Rủi ro quá cao. Đơn hàng không thể được chấp nhận.');
       }
 
       await backend.createOrder({
         buyer: formData.buyer,
         amount: totalAmount,
-        interestRate: parseFloat(formData.interestRate),
-        paymentTerms: parseInt(formData.paymentTerms),
         status: 'pending',
         invoiceNumber: formData.invoiceNumber,
-        dueDate: formData.dueDate,
         items: selectedItems.length > 0 ? selectedItems : undefined,
-        customerIncome: formData.useBNPL ? parseFloat(formData.customerIncome) : undefined,
-        installmentPeriod: formData.useBNPL ? parseInt(formData.installmentPeriod) : undefined,
+        customerIncome: parseFloat(formData.customerIncome),
+        installmentPeriod: parseInt(formData.installmentPeriod),
       });
 
       setStatus('success');
-      setMessage('Order created successfully!');
-      setFormData({ buyer: '', amount: '', interestRate: '3.5', paymentTerms: '30', invoiceNumber: '', dueDate: '', customerIncome: '', installmentPeriod: '', useBNPL: false });
+      setMessage('Đơn hàng đã được tạo thành công!');
+      setFormData({ buyer: '', amount: '', invoiceNumber: '', customerIncome: '', installmentPeriod: '' });
       setSelectedItems([]);
       setRiskAssessment(null);
     } catch (error: any) {
@@ -298,7 +289,7 @@ export default function CreateOrder() {
             {selectedItems.length === 0 && (
               <div style={{ marginBottom: '1.5rem' }}>
                 <label htmlFor="amount" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                  Amount ($)
+                  Số tiền (VND)
                 </label>
                 <input
                   type="number"
@@ -307,7 +298,7 @@ export default function CreateOrder() {
                   value={formData.amount}
                   onChange={handleChange}
                   min="0"
-                  step="0.01"
+                  step="1000"
                   style={{
                     width: '100%',
                     padding: '0.5rem',
@@ -322,198 +313,114 @@ export default function CreateOrder() {
             {selectedItems.length > 0 && (
               <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#f3f4f6', borderRadius: '0.375rem' }}>
                 <p style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Tổng tiền từ sản phẩm:</p>
-                <p style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>${calculateTotal().toLocaleString()}</p>
+                <p style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{calculateTotal().toLocaleString('vi-VN')} VND</p>
               </div>
             )}
 
-            {/* BNPL Option */}
+            {/* BNPL - Bắt buộc */}
             <div style={{ marginBottom: '1.5rem', padding: '1rem', border: '2px solid #3b82f6', borderRadius: '0.5rem', backgroundColor: '#eff6ff' }}>
-              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <h3 style={{ fontWeight: '600', fontSize: '1.1rem', marginBottom: '1rem' }}>Thông Tin Trả Góp (Bắt Buộc)</h3>
+              
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label htmlFor="customerIncome" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Thu nhập hàng tháng (VND) *
+                </label>
                 <input
-                  type="checkbox"
-                  name="useBNPL"
-                  checked={formData.useBNPL}
+                  type="number"
+                  id="customerIncome"
+                  name="customerIncome"
+                  value={formData.customerIncome}
                   onChange={handleChange}
-                  style={{ marginRight: '0.5rem', width: '1.25rem', height: '1.25rem' }}
+                  required
+                  min="0"
+                  step="100000"
+                  placeholder="Ví dụ: 20000000"
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '0.375rem',
+                    fontSize: '1rem',
+                  }}
                 />
-                <span style={{ fontWeight: '600', fontSize: '1.1rem' }}>Sử dụng Buy Now Pay Later (Trả góp)</span>
-              </label>
-            </div>
+                <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>Nhập thu nhập hàng tháng của bạn (VND)</p>
+              </div>
 
-            {formData.useBNPL && (
-              <>
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <label htmlFor="customerIncome" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                    Thu nhập hàng tháng ($) *
-                  </label>
-                  <input
-                    type="number"
-                    id="customerIncome"
-                    name="customerIncome"
-                    value={formData.customerIncome}
-                    onChange={handleChange}
-                    required={formData.useBNPL}
-                    min="0"
-                    step="0.01"
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '0.375rem',
-                      fontSize: '1rem',
-                    }}
-                  />
-                </div>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label htmlFor="installmentPeriod" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Kỳ hạn trả góp (tháng) *
+                </label>
+                <select
+                  id="installmentPeriod"
+                  name="installmentPeriod"
+                  value={formData.installmentPeriod}
+                  onChange={handleChange}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '0.375rem',
+                    fontSize: '1rem',
+                  }}
+                >
+                  <option value="">Chọn kỳ hạn</option>
+                  <option value="3">3 tháng</option>
+                  <option value="6">6 tháng</option>
+                  <option value="9">9 tháng</option>
+                  <option value="12">12 tháng</option>
+                  <option value="18">18 tháng</option>
+                  <option value="24">24 tháng</option>
+                </select>
+              </div>
 
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <label htmlFor="installmentPeriod" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                    Kỳ hạn trả góp (tháng) *
-                  </label>
-                  <select
-                    id="installmentPeriod"
-                    name="installmentPeriod"
-                    value={formData.installmentPeriod}
-                    onChange={handleChange}
-                    required={formData.useBNPL}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '0.375rem',
-                      fontSize: '1rem',
-                    }}
-                  >
-                    <option value="">Chọn kỳ hạn</option>
-                    <option value="3">3 tháng</option>
-                    <option value="6">6 tháng</option>
-                    <option value="9">9 tháng</option>
-                    <option value="12">12 tháng</option>
-                    <option value="18">18 tháng</option>
-                    <option value="24">24 tháng</option>
-                  </select>
-                </div>
-
-                {riskAssessment && (
-                  <div style={{ marginBottom: '1.5rem', padding: '1rem', borderRadius: '0.5rem', backgroundColor: '#f9fafb', border: `2px solid ${getRiskColor(riskAssessment.riskLevel)}` }}>
-                    <h3 style={{ fontWeight: '600', marginBottom: '0.75rem', color: getRiskColor(riskAssessment.riskLevel) }}>
-                      Đánh Giá Rủi Ro
-                    </h3>
-                    <div style={{ display: 'grid', gap: '0.5rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Mức độ rủi ro:</span>
-                        <span style={{ fontWeight: '600', color: getRiskColor(riskAssessment.riskLevel) }}>
-                          {riskAssessment.riskLevel.toUpperCase()}
+              {riskAssessment && (
+                <div style={{ marginBottom: '1.5rem', padding: '1rem', borderRadius: '0.5rem', backgroundColor: '#f9fafb', border: `2px solid ${getRiskColor(riskAssessment.riskLevel)}` }}>
+                  <h3 style={{ fontWeight: '600', marginBottom: '0.75rem', color: getRiskColor(riskAssessment.riskLevel) }}>
+                    Đánh Giá Rủi Ro
+                  </h3>
+                  <div style={{ display: 'grid', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Mức độ rủi ro:</span>
+                      <span style={{ fontWeight: '600', color: getRiskColor(riskAssessment.riskLevel) }}>
+                        {riskAssessment.riskLevel.toUpperCase()}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Điểm rủi ro:</span>
+                      <span style={{ fontWeight: '600' }}>{riskAssessment.riskScore}/100</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Tỷ lệ nợ/thu nhập:</span>
+                      <span style={{ fontWeight: '600' }}>{riskAssessment.debtToIncomeRatio}%</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Lãi suất:</span>
+                      <span style={{ fontWeight: '600' }}>{riskAssessment.adjustedInterestRate}%</span>
+                    </div>
+                    <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e5e7eb' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                        <span>Số tiền trả mỗi tháng:</span>
+                        <span style={{ fontWeight: '600', fontSize: '1.1rem', color: '#3b82f6' }}>
+                          {riskAssessment.monthlyPayment.toLocaleString('vi-VN')} VND
                         </span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Điểm rủi ro:</span>
-                        <span style={{ fontWeight: '600' }}>{riskAssessment.riskScore}/100</span>
+                        <span>Tổng tiền phải trả:</span>
+                        <span style={{ fontWeight: '600', fontSize: '1.1rem', color: '#10b981' }}>
+                          {riskAssessment.totalAmountWithInterest.toLocaleString('vi-VN')} VND
+                        </span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Tỷ lệ nợ/thu nhập:</span>
-                        <span style={{ fontWeight: '600' }}>{riskAssessment.debtToIncomeRatio}%</span>
+                      <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem' }}>
+                        (Gốc: {(selectedItems.length > 0 ? calculateTotal() : parseFloat(formData.amount || '0')).toLocaleString('vi-VN')} VND + Lãi: {(riskAssessment.totalAmountWithInterest - (selectedItems.length > 0 ? calculateTotal() : parseFloat(formData.amount || '0'))).toLocaleString('vi-VN')} VND)
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Lãi suất:</span>
-                        <span style={{ fontWeight: '600' }}>{riskAssessment.adjustedInterestRate}%</span>
-                      </div>
-                      <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e5e7eb' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                          <span>Số tiền trả mỗi tháng:</span>
-                          <span style={{ fontWeight: '600', fontSize: '1.1rem', color: '#3b82f6' }}>
-                            ${riskAssessment.monthlyPayment.toLocaleString()}
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Tổng tiền phải trả:</span>
-                          <span style={{ fontWeight: '600', fontSize: '1.1rem', color: '#10b981' }}>
-                            ${riskAssessment.totalAmountWithInterest.toLocaleString()}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem' }}>
-                          (Gốc: ${(selectedItems.length > 0 ? calculateTotal() : parseFloat(formData.amount || '0')).toLocaleString()} + Lãi: ${(riskAssessment.totalAmountWithInterest - (selectedItems.length > 0 ? calculateTotal() : parseFloat(formData.amount || '0'))).toLocaleString()})
-                        </div>
-                      </div>
-                      <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem', fontStyle: 'italic' }}>
-                        {riskAssessment.message}
-                      </p>
                     </div>
+                    <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.5rem', fontStyle: 'italic' }}>
+                      {riskAssessment.message}
+                    </p>
                   </div>
-                )}
-              </>
-            )}
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label htmlFor="interestRate" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                Interest Rate (%) {formData.useBNPL && '(Sẽ được tính tự động)'}
-              </label>
-              <input
-                type="number"
-                id="interestRate"
-                name="interestRate"
-                value={formData.interestRate}
-                onChange={handleChange}
-                disabled={formData.useBNPL}
-                required
-                min="0"
-                step="0.1"
-                style={{
-                  width: '100%',
-                  padding: '0.5rem',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '0.375rem',
-                  fontSize: '1rem',
-                  backgroundColor: formData.useBNPL ? '#f3f4f6' : 'white',
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label htmlFor="paymentTerms" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                Payment Terms (days) {formData.useBNPL && '(Không áp dụng khi trả góp)'}
-              </label>
-              <input
-                type="number"
-                id="paymentTerms"
-                name="paymentTerms"
-                value={formData.paymentTerms}
-                onChange={handleChange}
-                disabled={formData.useBNPL}
-                required
-                min="1"
-                step="1"
-                style={{
-                  width: '100%',
-                  padding: '0.5rem',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '0.375rem',
-                  fontSize: '1rem',
-                  backgroundColor: formData.useBNPL ? '#f3f4f6' : 'white',
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label htmlFor="dueDate" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
-                Due Date {formData.useBNPL && '(Sẽ được tính tự động)'}
-              </label>
-              <input
-                type="date"
-                id="dueDate"
-                name="dueDate"
-                value={formData.dueDate}
-                onChange={handleChange}
-                disabled={formData.useBNPL}
-                required
-                style={{
-                  width: '100%',
-                  padding: '0.5rem',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '0.375rem',
-                  fontSize: '1rem',
-                  backgroundColor: formData.useBNPL ? '#f3f4f6' : 'white',
-                }}
-              />
+                </div>
+              )}
             </div>
 
             {message && (
@@ -616,7 +523,7 @@ export default function CreateOrder() {
                   <div style={{ flex: 1 }}>
                     <h3 style={{ fontWeight: '600', marginBottom: '0.25rem' }}>{product.name}</h3>
                     <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>{product.brand}</p>
-                    <p style={{ fontWeight: '600', color: '#3b82f6', marginBottom: '0.25rem' }}>${product.price.toLocaleString()}</p>
+                    <p style={{ fontWeight: '600', color: '#3b82f6', marginBottom: '0.25rem' }}>{product.price.toLocaleString('vi-VN')} VND</p>
                     {product.ram && product.storage && (
                       <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.125rem' }}>
                         {product.ram}GB/{product.storage}GB
