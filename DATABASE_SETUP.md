@@ -220,7 +220,6 @@ Lưu trữ thông tin đơn hàng:
 - `payment_terms`: Điều khoản thanh toán (số ngày)
 - `status`: Trạng thái (pending/approved/rejected/completed)
 - `invoice_number`: Số hóa đơn
-- `due_date`: Ngày đến hạn
 - `created_at`: Ngày tạo
 
 ### Bảng `risk_metrics`

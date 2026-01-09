@@ -227,7 +227,7 @@ router.get('/orders/:id', requireAdmin, async (req, res) => {
       `SELECT o.id, o.user_id as userId, u.company_name as customerName, u.email as customerEmail,
               o.buyer, o.amount, o.interest_rate as interestRate,
               o.payment_terms as paymentTerms, o.status, o.invoice_number as invoiceNumber,
-              o.due_date as dueDate, o.created_at as createdAt,
+              o.created_at as createdAt,
               o.customer_income as customerIncome, o.installment_period as installmentPeriod,
               o.monthly_payment as monthlyPayment, o.total_amount_with_interest as totalAmountWithInterest,
               o.risk_score as riskScore, o.risk_level as riskLevel
@@ -297,15 +297,14 @@ router.put('/orders/:id', requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Order không tồn tại' });
     }
 
-    const allowedFields = ['buyer', 'amount', 'interest_rate', 'payment_terms', 'status', 'invoice_number', 'due_date'];
+    const allowedFields = ['buyer', 'amount', 'interest_rate', 'payment_terms', 'status', 'invoice_number'];
     const updateFields = [];
     const updateValues = [];
 
     for (const [key, value] of Object.entries(updates)) {
       const dbKey = key === 'interestRate' ? 'interest_rate' :
                     key === 'paymentTerms' ? 'payment_terms' :
-                    key === 'invoiceNumber' ? 'invoice_number' :
-                    key === 'dueDate' ? 'due_date' : key;
+                    key === 'invoiceNumber' ? 'invoice_number' : key;
       if (allowedFields.includes(dbKey) && value !== undefined) {
         updateFields.push(`${dbKey} = ?`);
         updateValues.push(value);
@@ -415,7 +414,7 @@ router.get('/customers/:id/orders', requireAdmin, async (req, res) => {
     const [orders] = await db.execute(
       `SELECT id, buyer, amount, interest_rate as interestRate,
               payment_terms as paymentTerms, status, invoice_number as invoiceNumber,
-              due_date as dueDate, created_at as createdAt
+              created_at as createdAt
        FROM orders
        WHERE user_id = ?
        ORDER BY created_at DESC`,

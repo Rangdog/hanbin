@@ -12,8 +12,25 @@ function generateUUID() {
 
 // Middleware đơn giản để lấy userId (trong production nên dùng JWT)
 function getUserId(req) {
-  // Tạm thời lấy từ header hoặc query
-  return req.headers['x-user-id'] || req.query.userId;
+  // Lấy từ header X-User-Id (frontend gửi)
+  const userId = req.headers['x-user-id'];
+  if (userId) {
+    return userId;
+  }
+  
+  // Fallback: lấy từ query (nếu có)
+  return req.query.userId;
+}
+
+// Middleware để validate authentication
+function requireAuth(req, res, next) {
+  const userId = getUserId(req);
+  if (!userId) {
+    return res.status(401).json({ error: 'Chưa đăng nhập' });
+  }
+  // Gán userId vào req để các route khác sử dụng
+  req.userId = userId;
+  next();
 }
 
 /**
@@ -44,12 +61,9 @@ router.post('/orders/calculate-risk', async (req, res) => {
  * GET /api/orders
  * Lấy danh sách orders của user
  */
-router.get('/orders', async (req, res) => {
+router.get('/orders', requireAuth, async (req, res) => {
   try {
-    const userId = getUserId(req);
-    if (!userId) {
-      return res.status(401).json({ error: 'Chưa đăng nhập' });
-    }
+    const userId = req.userId;
 
     const [orders] = await db.execute(
       `SELECT id, user_id as userId, buyer, amount, interest_rate as interestRate,
@@ -85,12 +99,9 @@ router.get('/orders', async (req, res) => {
  * POST /api/orders
  * Tạo order mới
  */
-router.post('/orders', async (req, res) => {
+router.post('/orders', requireAuth, async (req, res) => {
   try {
-    const userId = getUserId(req);
-    if (!userId) {
-      return res.status(401).json({ error: 'Chưa đăng nhập' });
-    }
+    const userId = req.userId;
 
     // Kiểm tra user có bị khóa không
     const [userCheck] = await db.execute('SELECT is_locked FROM users WHERE id = ?', [userId]);
@@ -203,7 +214,7 @@ router.post('/orders', async (req, res) => {
       const [orders] = await connection.execute(
         `SELECT o.id, o.user_id as userId, o.buyer, o.amount, o.interest_rate as interestRate,
                 o.payment_terms as paymentTerms, o.status, o.invoice_number as invoiceNumber,
-                o.due_date as dueDate, o.created_at as createdAt,
+                o.created_at as createdAt,
                 o.customer_income as customerIncome, o.installment_period as installmentPeriod,
                 o.monthly_payment as monthlyPayment, o.total_amount_with_interest as totalAmountWithInterest,
                 o.risk_score as riskScore, o.risk_level as riskLevel, o.approved_by_admin as approvedByAdmin
@@ -267,12 +278,9 @@ router.post('/orders', async (req, res) => {
  * PUT /api/orders/:id
  * Cập nhật order
  */
-router.put('/orders/:id', async (req, res) => {
+router.put('/orders/:id', requireAuth, async (req, res) => {
   try {
-    const userId = getUserId(req);
-    if (!userId) {
-      return res.status(401).json({ error: 'Chưa đăng nhập' });
-    }
+    const userId = req.userId;
 
     const { id } = req.params;
     const updates = req.body;
@@ -284,15 +292,14 @@ router.put('/orders/:id', async (req, res) => {
     }
 
     // Build update query
-    const allowedFields = ['buyer', 'amount', 'interest_rate', 'payment_terms', 'status', 'invoice_number', 'due_date'];
+    const allowedFields = ['buyer', 'amount', 'interest_rate', 'payment_terms', 'status', 'invoice_number'];
     const updateFields = [];
     const updateValues = [];
 
     for (const [key, value] of Object.entries(updates)) {
       const dbKey = key === 'interestRate' ? 'interest_rate' :
                     key === 'paymentTerms' ? 'payment_terms' :
-                    key === 'invoiceNumber' ? 'invoice_number' :
-                    key === 'dueDate' ? 'due_date' : key;
+                    key === 'invoiceNumber' ? 'invoice_number' : key;
       if (allowedFields.includes(dbKey) && value !== undefined) {
         updateFields.push(`${dbKey} = ?`);
         updateValues.push(value);
@@ -313,7 +320,7 @@ router.put('/orders/:id', async (req, res) => {
     const [updatedOrders] = await db.execute(
       `SELECT id, user_id as userId, buyer, amount, interest_rate as interestRate,
               payment_terms as paymentTerms, status, invoice_number as invoiceNumber,
-              due_date as dueDate, created_at as createdAt
+              created_at as createdAt
        FROM orders WHERE id = ?`,
       [id]
     );
@@ -335,12 +342,9 @@ router.put('/orders/:id', async (req, res) => {
  * DELETE /api/orders/:id
  * Xóa order
  */
-router.delete('/orders/:id', async (req, res) => {
+router.delete('/orders/:id', requireAuth, async (req, res) => {
   try {
-    const userId = getUserId(req);
-    if (!userId) {
-      return res.status(401).json({ error: 'Chưa đăng nhập' });
-    }
+    const userId = req.userId;
 
     const { id } = req.params;
 
@@ -362,12 +366,9 @@ router.delete('/orders/:id', async (req, res) => {
  * GET /api/user
  * Lấy thông tin user
  */
-router.get('/user', async (req, res) => {
+router.get('/user', requireAuth, async (req, res) => {
   try {
-    const userId = getUserId(req);
-    if (!userId) {
-      return res.status(401).json({ error: 'Chưa đăng nhập' });
-    }
+    const userId = req.userId;
 
     const [users] = await db.execute('SELECT * FROM users WHERE id = ?', [userId]);
     if (users.length === 0) {
@@ -396,12 +397,9 @@ router.get('/user', async (req, res) => {
  * PUT /api/user
  * Cập nhật thông tin user
  */
-router.put('/user', async (req, res) => {
+router.put('/user', requireAuth, async (req, res) => {
   try {
-    const userId = getUserId(req);
-    if (!userId) {
-      return res.status(401).json({ error: 'Chưa đăng nhập' });
-    }
+    const userId = req.userId;
 
     const { companyName, industry, email } = req.body;
     const updates = {};
@@ -443,12 +441,9 @@ router.put('/user', async (req, res) => {
  * GET /api/risk-metrics
  * Lấy risk metrics của user
  */
-router.get('/risk-metrics', async (req, res) => {
+router.get('/risk-metrics', requireAuth, async (req, res) => {
   try {
-    const userId = getUserId(req);
-    if (!userId) {
-      return res.status(401).json({ error: 'Chưa đăng nhập' });
-    }
+    const userId = req.userId;
 
     const [metrics] = await db.execute(
       `SELECT credit_score as creditScore, payment_history as paymentHistory,

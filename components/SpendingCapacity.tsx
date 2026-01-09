@@ -28,7 +28,7 @@ export default function SpendingCapacity({ creditLimit, availableCredit }: Spend
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="name" />
           <YAxis />
-          <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+          <Tooltip formatter={(value) => `${value.toLocaleString('vi-VN')} VND`} />
           <Bar dataKey="value" fill="#3b82f6" />
         </BarChart>
       </ResponsiveContainer>

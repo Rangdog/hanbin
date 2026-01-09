@@ -270,13 +270,9 @@ Hoặc bạn có thể đăng ký tài khoản mới từ giao diện (sẽ là 
 2. **Điền thông tin đơn hàng:**
    - **Buyer:** Tên người mua
    - **Invoice Number:** Số hóa đơn
-   - **Due Date:** Ngày đến hạn thanh toán
-   - **Interest Rate:** Lãi suất (%)
-   - **Payment Terms:** Số ngày thanh toán
 
-3. **Sử dụng Buy Now Pay Later (BNPL) - Tùy chọn:**
-   - Tích vào checkbox "Sử dụng Buy Now Pay Later"
-   - **Thu nhập hàng tháng:** Nhập thu nhập của bạn (USD/tháng)
+3. **Buy Now Pay Later (BNPL) - Bắt buộc:**
+   - **Thu nhập hàng tháng:** Nhập thu nhập của bạn (VND/tháng)
    - **Kỳ hạn trả góp:** Chọn từ 3, 6, 9, 12, 18, hoặc 24 tháng
    - Hệ thống sẽ tự động:
      - Tính toán Debt-to-Income Ratio (DTI)
@@ -318,7 +314,7 @@ Hoặc bạn có thể đăng ký tài khoản mới từ giao diện (sẽ là 
 
 - **Cập nhật đơn hàng:**
   - Nhấn "Edit" để cập nhật thông tin đơn hàng
-  - Có thể thay đổi: Buyer, Amount, Interest Rate, Payment Terms, Status, Invoice Number, Due Date
+  - Có thể thay đổi: Buyer, Amount, Interest Rate, Payment Terms, Status, Invoice Number
 
 - **Xóa đơn hàng:**
   - Nhấn "Delete" và xác nhận

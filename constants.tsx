@@ -20,7 +20,6 @@ export const MOCK_ORDERS = [
     paymentTerms: 60,
     status: 'approved' as const,
     invoiceNumber: 'INV-2024-001',
-    dueDate: '2024-03-15',
     createdAt: '2024-01-15',
   },
 ];
