@@ -76,22 +76,32 @@ router.get('/orders', requireAuth, async (req, res) => {
       [userId]
     );
 
-    res.json(orders.map(order => ({
-      ...order,
-      amount: parseFloat(order.amount),
-      interestRate: parseFloat(order.interestRate),
-      paymentTerms: parseInt(order.paymentTerms),
-      customerIncome: order.customerIncome ? parseFloat(order.customerIncome) : undefined,
-      installmentPeriod: order.installmentPeriod ? parseInt(order.installmentPeriod) : undefined,
-      monthlyPayment: order.monthlyPayment ? parseFloat(order.monthlyPayment) : undefined,
-      totalAmountWithInterest: order.totalAmountWithInterest ? parseFloat(order.totalAmountWithInterest) : undefined,
-      riskScore: order.riskScore ? parseInt(order.riskScore) : undefined,
-      riskLevel: order.riskLevel || undefined,
-      approvedByAdmin: order.approvedByAdmin === 1,
-    })));
+    const formattedOrders = orders.map(order => {
+      try {
+        return {
+          ...order,
+          amount: parseFloat(order.amount) || 0,
+          interestRate: parseFloat(order.interestRate) || 0,
+          paymentTerms: parseInt(order.paymentTerms) || 0,
+          customerIncome: order.customerIncome ? parseFloat(order.customerIncome) : undefined,
+          installmentPeriod: order.installmentPeriod ? parseInt(order.installmentPeriod) : undefined,
+          monthlyPayment: order.monthlyPayment ? parseFloat(order.monthlyPayment) : undefined,
+          totalAmountWithInterest: order.totalAmountWithInterest ? parseFloat(order.totalAmountWithInterest) : undefined,
+          riskScore: order.riskScore ? parseInt(order.riskScore) : undefined,
+          riskLevel: order.riskLevel || undefined,
+          approvedByAdmin: order.approvedByAdmin === 1 || order.approvedByAdmin === true,
+        };
+      } catch (mapError) {
+        console.error('Error mapping order:', order.id, mapError);
+        return null;
+      }
+    }).filter(order => order !== null);
+
+    res.json(formattedOrders);
   } catch (error) {
     console.error('Get orders error:', error);
-    res.status(500).json({ error: 'Lỗi server khi lấy danh sách orders' });
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: 'Lỗi server khi lấy danh sách orders', details: error.message });
   }
 });
 

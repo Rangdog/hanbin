@@ -88,6 +88,7 @@ router.get('/', async (req, res) => {
 /**
  * GET /api/products/:id
  * Lấy chi tiết sản phẩm
+ * Lưu ý: Route này phải đặt SAU route '/' để tránh conflict
  */
 router.get('/:id', async (req, res) => {
   try {

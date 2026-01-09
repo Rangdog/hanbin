@@ -394,12 +394,14 @@ router.post('/verify-email', async (req, res) => {
 
 /**
  * GET /api/auth/me
- * Lấy thông tin user hiện tại (cần middleware auth)
+ * Lấy thông tin user hiện tại (không yêu cầu auth, chỉ cần X-User-Id header)
  */
 router.get('/me', async (req, res) => {
   try {
     // Lấy userId từ header X-User-Id (frontend gửi)
     const userId = req.headers['x-user-id'];
+    
+    // Nếu không có userId, trả về null (chưa đăng nhập)
     if (!userId) {
       return res.status(401).json({ error: 'Chưa đăng nhập' });
     }
